@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import { checkoutRecordId, candidateProfileLink, profileLink } from './whitepages-links.js';
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
   auth: {
@@ -269,15 +270,8 @@ function listingUrl(value) {
   } catch {}
   return null;
 }
-function whitepagesProfileUrl(value) {
-  const href=listingUrl(value);
-  if (!href) return null;
-  const url=new URL(href);
-  const segments=url.pathname.split('/').filter(Boolean);
-  if (segments.length !== 4 || segments[0].toLowerCase()!=='name' || !/^[a-z0-9]+$/i.test(segments[3])) return null;
-  return url.origin+url.pathname;
-}
-function initializeFindingReview(user, findings, removals) {
+function whitepagesProfileUrl(value) { return profileLink(value); }
+function initializeFindingReview(user, findings, removals, profile) {
   const activeTab = document.getElementById('filter-active');
   const dismissedTab = document.getElementById('filter-dismissed');
   const container = document.getElementById('findings-list');
@@ -290,16 +284,65 @@ function initializeFindingReview(user, findings, removals) {
   const copyUrl = document.getElementById('guide-copy-url');
   const copyStatus = document.getElementById('guide-copy-status');
   const urlHelp = document.getElementById('guide-url-help');
+  const checkoutInput = document.getElementById('guide-checkout-url');
+  const generateLink = document.getElementById('guide-generate-link');
+  const generateStatus = document.getElementById('guide-generate-status');
+  const guideCity = document.getElementById('guide-city');
+  const guideState = document.getElementById('guide-state');
+  const verifyBox = document.getElementById('guide-verify-box');
+  const verifyLink = document.getElementById('guide-verify-link');
+  const verifyCheck = document.getElementById('guide-verify-check');
+  let generatedCandidate = null;
+  function resetCandidate() {
+    generatedCandidate = null;
+    if (verifyBox) verifyBox.hidden = true;
+    if (verifyCheck) verifyCheck.checked = false;
+  }
+  generateLink?.addEventListener('click', () => {
+    const wpId = checkoutRecordId(checkoutInput.value);
+    if (!wpId) {
+      generateStatus.textContent = 'Paste a Whitepages checkout link containing a valid wpId.';
+      return;
+    }
+    const candidate = candidateProfileLink({
+      first_name: profile?.first_name,
+      last_name: profile?.last_name,
+      city: guideCity.value,
+      state: guideState.value
+    }, wpId);
+    if (!candidate) {
+      generateStatus.textContent = 'Add a valid city and state to create the profile link.';
+      return;
+    }
+    resetCandidate();
+    generatedCandidate = candidate;
+    guideUrl.value = candidate;
+    verifyLink.href = candidate;
+    verifyBox.hidden = false;
+    copyStatus.textContent = '';
+    generateStatus.textContent = 'Candidate link created. Open it and check that it displays your listing.';
+    validateGuideUrl();
+  });
+  verifyCheck?.addEventListener('change', validateGuideUrl);
   function validateGuideUrl() {
     const valid=whitepagesProfileUrl(guideUrl.value);
-    copyUrl.disabled=!valid;
-    if (urlHelp) urlHelp.textContent=valid ? 'Profile link ready to copy.' : 'Open the individual Whitepages listing and paste its full URL, including the final profile ID.';
+    const needsCheck = valid && generatedCandidate === valid;
+    copyUrl.disabled = !valid || (needsCheck && !verifyCheck.checked);
+    if (urlHelp) urlHelp.textContent = !valid
+      ? 'Paste an individual Whitepages profile URL, not a checkout link.'
+      : needsCheck && !verifyCheck.checked
+        ? 'Open the candidate link and verify that it shows your listing before copying.'
+        : 'Profile link ready to copy.';
     return valid;
   }
-  guideUrl?.addEventListener('input',()=>{copyStatus.textContent='';validateGuideUrl();});
+  guideUrl?.addEventListener('input',()=>{
+    copyStatus.textContent = '';
+    if (generatedCandidate && guideUrl.value !== generatedCandidate) resetCandidate();
+    validateGuideUrl();
+  });
   copyUrl?.addEventListener('click',async()=>{
     const url=validateGuideUrl();
-    if (!url) return;
+    if (!url || copyUrl.disabled) return;
     try {
       await navigator.clipboard.writeText(url);
       copyUrl.textContent='Copied!';
@@ -401,6 +444,11 @@ function initializeFindingReview(user, findings, removals) {
     }
     selectedFinding=finding;
     guideListing.href=url;
+    resetCandidate();
+    checkoutInput.value = '';
+    generateStatus.textContent = '';
+    guideCity.value = profile?.city || '';
+    guideState.value = profile?.state || '';
     guideUrl.value=whitepagesProfileUrl(url) || '';
     copyUrl.textContent='Copy Link';
     validateGuideUrl();
@@ -437,7 +485,7 @@ async function initializeCustomerApp(user) {
   const statusElement = document.getElementById('app-status');
   if (statusElement) statusElement.textContent = 'Loading your account…';
   const queries = await Promise.allSettled([
-    withTimeout(supabase.from('customer_profiles').select('first_name,last_name,consent_to_search').eq('user_id',user.id).maybeSingle()),
+    withTimeout(supabase.from('customer_profiles').select('first_name,last_name,city,state,consent_to_search').eq('user_id',user.id).maybeSingle()),
     withTimeout(supabase.from('privacy_scans').select('id,status,started_at,completed_at').eq('user_id',user.id).order('started_at',{ascending:false}).limit(100)),
     withTimeout(supabase.from('privacy_findings').select('id,source_name,listing_url,match_status,detected_at').eq('user_id',user.id).order('detected_at',{ascending:false}).limit(200)),
     withTimeout(supabase.from('privacy_removals').select('id,finding_id,status,updated_at').eq('user_id',user.id).order('updated_at',{ascending:false}).limit(200))
@@ -507,7 +555,7 @@ async function initializeCustomerApp(user) {
   appText('monitor-last',latest ? formatDate(latest.started_at)+' · '+latest.status : 'No scan completed yet.');
   displayItems('recent-activity',scans.slice(0,5),'No scan activity yet.',x=>buildRow('Privacy scan',formatDate(x.started_at),x.status));
   displayItems('monitor-history',scans,'No scans yet.',x=>buildRow('Privacy scan',formatDate(x.started_at),x.status));
-  initializeFindingReview(user,findings,removals);
+  initializeFindingReview(user,findings,removals,profile);
   displayItems('removals-list',removals,'No removal requests recorded yet.',x=>{
     const finding = findings.find(f=>f.id===x.finding_id);
     return buildRow(finding?.source_name||'Removal request',formatDate(x.updated_at),x.status);
