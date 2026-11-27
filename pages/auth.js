@@ -655,7 +655,8 @@ async function initializeCustomerApp(user) {
     withTimeout(supabase.from('supported_sites').select('slug,name,domain,search_url,optout_url,search_mode,guide_steps,integration_status').order('name')),
     withTimeout(supabase.from('scan_source_results').select('scan_id,site_slug,status,findings_count,checked_at').eq('user_id',user.id).order('checked_at',{ascending:false}).limit(200)),
     withTimeout(supabase.from('verification_checks').select('id,removal_id,outcome,method,checked_at').eq('user_id',user.id).order('checked_at',{ascending:false}).limit(200)),
-    withTimeout(supabase.from('monitoring_schedules').select('enabled,subscription_active,next_check_at').eq('user_id',user.id).maybeSingle())
+    withTimeout(supabase.from('monitoring_schedules').select('enabled,subscription_active,next_check_at').eq('user_id',user.id).maybeSingle()),
+    withTimeout(supabase.from('monitoring_notifications').select('id,event,message,created_at,read_at').eq('user_id',user.id).order('created_at',{ascending:false}).limit(100))
   ]);
   const failed = queries.some(item=>item.status==='rejected'||item.value.error);
   if (failed) {
@@ -663,7 +664,7 @@ async function initializeCustomerApp(user) {
     return;
   }
   if (statusElement) statusElement.textContent = '';
-  const [profile,scans,findings,removals,sites,sourceChecks,verificationChecks,monitoringSchedule] = queries.map(x=>x.value.data);
+  const [profile,scans,findings,removals,sites,sourceChecks,verificationChecks,monitoringSchedule,monitoringNotifications] = queries.map(x=>x.value.data);
   const latest = scans[0];
   const pending = removals.filter(x=>x.status!=='verified_removed').length;
   const removed = removals.filter(x=>x.status==='verified_removed').length;
@@ -727,6 +728,9 @@ async function initializeCustomerApp(user) {
     ? checked+' of '+sites.length+' sources searched via index'+(missed ? ' · '+missed+' unavailable' : '')
     : '');
   appText('monitor-schedule-state', monitoringSchedule?.enabled ? 'Monitoring enabled' : 'No active monitoring schedule.');
+  appText('monitor-alert-count',String(monitoringNotifications.length));
+  displayItems('monitor-alerts',monitoringNotifications,'No alerts.',item=>
+    buildRow(item.message,formatDate(item.created_at),item.event==='possible_exposure'?'Potential Match':'Notice'));
 
   displayItems('recent-activity',scans.slice(0,5),'No scan activity yet.',x=>buildRow('Privacy scan',formatDate(x.started_at),x.status));
   displayItems('monitor-history',scans,'No scans yet.',x=>buildRow('Privacy scan',formatDate(x.started_at),x.status));
