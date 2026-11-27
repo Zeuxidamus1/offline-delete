@@ -266,12 +266,18 @@ function makeAction(label, style, action) {
 function listingUrl(value) {
   try {
     const url = new URL(value);
-    if (url.protocol === 'https:' && /(^|\.)whitepages\.com$/i.test(url.hostname)) return url.href;
+    const allowed = ['truepeoplesearch.com','fastpeoplesearch.com','usphonebook.com',
+      'familytreenow.com','thatsthem.com','searchpeoplefree.com',
+      'advancedbackgroundchecks.com','cyberbackgroundchecks.com',
+      'nuwber.com','whitepages.com'];
+    const host=url.hostname.toLowerCase();
+    if (url.protocol==='https:' && !url.username && !url.password &&
+        allowed.some(domain=>host===domain||host==='www.'+domain)) return url.href;
   } catch {}
   return null;
 }
 function whitepagesProfileUrl(value) { return profileLink(value); }
-function initializeFindingReview(user, findings, removals) {
+function initializeFindingReview(user, findings, removals, sites) {
   const activeTab = document.getElementById('filter-active');
   const dismissedTab = document.getElementById('filter-dismissed');
   const container = document.getElementById('findings-list');
@@ -286,7 +292,7 @@ function initializeFindingReview(user, findings, removals) {
   const guideFeedback = document.getElementById('guide-feedback');
   let showAll = false;
   let savingStep = false;
-  const steps = [
+  const fallbackSteps = [
     {title:'Click View Listing',hint:'Open your Whitepages result.',action:'listing'},
     {title:'Select View Report',hint:'Choose View Report for the correct person.'},
     {title:'Copy the URL',hint:'Copy the address from the new Whitepages window.'},
@@ -296,6 +302,7 @@ function initializeFindingReview(user, findings, removals) {
   let currentFilter = 'active';
   let selectedFinding = null;
   const requestMap = new Map(removals.map(x=>[x.finding_id,x]));
+  const siteByName = new Map(sites.map(site=>[site.name,site]));
 
   function notify(message) { appText('app-status', message); }
   function currentRequest() {
@@ -317,6 +324,8 @@ function initializeFindingReview(user, findings, removals) {
     guideShowAll.setAttribute('aria-expanded',String(showAll));
     guideFinish.hidden=done!==5;
     guideSteps.replaceChildren();
+    const site=siteByName.get(selectedFinding.source_name);
+    const steps=Array.isArray(site?.guide_steps)&&site.guide_steps.length===5?site.guide_steps:fallbackSteps;
     steps.forEach((step,index)=>{
       if (!showAll && index>done) return;
       const complete=index<done;
@@ -339,14 +348,14 @@ function initializeFindingReview(user, findings, removals) {
       description.textContent=step.hint;
       content.append(title,description);
       const url=step.action==='listing'?listingUrl(selectedFinding.listing_url):
-        step.action==='optout'?'https://www.whitepages.com/suppression-requests':null;
+        step.action==='optout'?listingUrl(site?.optout_url):null;
       if (url) {
         const link=document.createElement('a');
         link.className='guide-step-link';
         link.href=url;
         link.target='_blank';
         link.rel='noopener noreferrer';
-        link.textContent=step.action==='listing'?'View Listing ↗':'Open Whitepages Opt-Out ↗';
+        link.textContent=step.action==='listing'?'View Listing ↗':'Open '+(site?.name||'Website')+' Opt-Out ↗';
         content.append(link);
       }
       line.append(circle,content);
@@ -572,7 +581,7 @@ async function initializeCustomerApp(user) {
   appText('monitor-last',latest ? formatDate(latest.started_at)+' · '+latest.status : 'No scan completed yet.');
   displayItems('recent-activity',scans.slice(0,5),'No scan activity yet.',x=>buildRow('Privacy scan',formatDate(x.started_at),x.status));
   displayItems('monitor-history',scans,'No scans yet.',x=>buildRow('Privacy scan',formatDate(x.started_at),x.status));
-  initializeFindingReview(user,findings,removals);
+  initializeFindingReview(user,findings,removals,sites);
   displayItems('removals-list',removals,'No removal requests recorded yet.',x=>{
     const finding = findings.find(f=>f.id===x.finding_id);
     return buildRow(finding?.source_name||'Removal request',formatDate(x.updated_at),x.status);
