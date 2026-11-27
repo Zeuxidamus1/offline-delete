@@ -101,3 +101,33 @@ button:disabled { opacity: 0.65; cursor: wait; }
 :focus-visible { outline: 3px solid #23734f; outline-offset: 4px; }
 [role="status"] { margin: 1rem 0 0; }
 [role="status"]:empty { margin: 0; }
+#password-auth {
+  display: grid;
+  gap: 0.625rem;
+}
+#password-auth label { font-weight: 650; }
+#password-auth input {
+  width: 100%;
+  min-height: 46px;
+  padding: 0.625rem;
+  border: 1px solid #7b9588;
+  border-radius: 0.625rem;
+  color: inherit;
+  font: inherit;
+}
+#password-auth input + label { margin-top: 0.25rem; }
+#password-auth button { margin-top: 0.375rem; }
+.auth-divider {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin: 0.875rem 0;
+  color: #52635a;
+}
+.auth-divider::before, .auth-divider::after {
+  content: "";
+  flex: 1;
+  border-top: 1px solid #d8e3db;
+}
+#github-signin { color: #173e30; background: #f7faf7; }
+#github-signin:hover:not(:disabled) { background: #e5f1e7; }

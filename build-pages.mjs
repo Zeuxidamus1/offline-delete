@@ -15,8 +15,8 @@ function page(name, title, header, content) {
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="referrer" content="no-referrer">
 <title>${title}</title>
-<link rel="stylesheet" href="./account-access.css">
-<script type="module" src="./github-auth.js"></script>
+<link rel="stylesheet" href="./account-password.css">
+<script type="module" src="./account-password.js"></script>
 </head>
 <body data-page="${name}">
 <header><a class="brand" href="./">Offline Delete</a>${header}</header>
@@ -27,11 +27,21 @@ ${content}
 }
 
 function accountPage(name, title, switchText, switchLink) {
+  const signingUp = name === 'signup';
+  const length = signingUp ? ' minlength="8"' : '';
   return page(name, title + ' | Offline Delete', '', `<main class="account-layout">
 <section class="auth" aria-labelledby="title">
 <div class="account-content">
 <span class="account-mark" aria-hidden="true"><span></span></span>
 <h1 id="title">${title}</h1>
+<form id="password-auth" method="post">
+<label for="email">Email address</label>
+<input id="email" name="email" type="email" autocomplete="email" required>
+<label for="password">Password</label>
+<input id="password" name="password" type="password" autocomplete="${signingUp ? 'new-password' : 'current-password'}"${length} required>
+<button type="submit" disabled>${title}</button>
+</form>
+<div class="auth-divider" aria-hidden="true">or</div>
 <button id="github-signin" type="button" disabled>Continue with GitHub</button>
 <p id="status" role="status"></p>
 </div>
@@ -52,14 +62,14 @@ const files = {
 };
 await Promise.all([
   ...Object.entries(files).map(([file, content]) => writeFile(new URL(file, output), content)),
-  copyFile(new URL('./pages/style.css', import.meta.url), new URL('account-access.css', output)),
+  copyFile(new URL('./pages/style.css', import.meta.url), new URL('account-password.css', output)),
   build({
     entryPoints: ['pages/auth.js'],
     bundle: true,
     minify: true,
     format: 'esm',
     platform: 'browser',
-    outfile: 'pages-dist/github-auth.js',
+    outfile: 'pages-dist/account-password.js',
     define: {
       SUPABASE_URL: JSON.stringify(SUPABASE_URL),
       SUPABASE_PUBLISHABLE_KEY: JSON.stringify(SUPABASE_PUBLISHABLE_KEY)
