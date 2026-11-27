@@ -280,6 +280,47 @@ async function initializeCustomerApp(user) {
   appText('profile-greeting',profile?.first_name ? 'Welcome, '+profile.first_name : 'Your privacy overview');
   appText('profile-state',!profile ? 'Complete your profile to prepare for scans.' :
     profile.consent_to_search ? 'Profile saved and search authorization enabled.' : 'Profile saved. Search authorization is not enabled.');
+  const scanButton = document.getElementById('start-scan');
+  if (scanButton) {
+    scanButton.disabled = true;
+    appText('scan-action-note','Checking search availability…');
+    const {data:availability,error:availabilityError} = await supabase.functions.invoke('privacy-scan',{method:'GET'});
+    if (availabilityError || !availability?.ready) {
+      appText('scan-action-note','Whitepages search integration is awaiting its free search API connection.');
+    } else if (!profile) {
+      appText('scan-action-note','Save your profile before searching.');
+    } else if (!profile.consent_to_search) {
+      appText('scan-action-note','Authorize searches in My Profile first.');
+    } else {
+      const lastRun = latest?.started_at ? new Date(latest.started_at).getTime() : 0;
+      if (lastRun && Date.now()-lastRun < 86400000) {
+        appText('scan-action-note','You can run another search 24 hours after your previous attempt.');
+      } else {
+        scanButton.disabled = false;
+        appText('scan-action-note','Searches Whitepages through Tavily. Listings are possible matches until reviewed.');
+        scanButton.addEventListener('click',async()=>{
+          scanButton.disabled = true;
+          scanButton.textContent = 'Scanning…';
+          appText('scan-action-note','Searching indexed Whitepages pages…');
+          try {
+            const {data,error}=await supabase.functions.invoke('privacy-scan',{method:'POST'});
+            if (error) {
+              let message = 'Search could not be completed. Try again later.';
+              try { const payload = await error.context?.json(); if (payload?.error) message=payload.error; } catch {}
+              throw new Error(message);
+            }
+            if (data?.status !== 'completed') throw new Error('Search did not finish successfully.');
+            appText('scan-action-note','Scan completed. Refreshing results…');
+            window.location.assign('./scan-results.html');
+          } catch(error) {
+            scanButton.textContent = 'Start Privacy Scan';
+            appText('scan-action-note',error.message || 'Unable to run scan.');
+            scanButton.disabled = false;
+          }
+        });
+      }
+    }
+  }
   appText('scan-state',latest ? latest.status : 'Not started');
   appText('scan-summary',latest ? 'Latest scan: '+formatDate(latest.started_at)+' · '+latest.status : 'No privacy scans have been run.');
   appText('finding-count',String(findings.length));
