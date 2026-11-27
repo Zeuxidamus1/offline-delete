@@ -1,5 +1,6 @@
 import { sources } from './sources.js';
 
+const request = fetch;
 const root = document.querySelector('#workspace');
 const notice = document.querySelector('#notice');
 const nav = [...document.querySelectorAll('[data-view]')];
@@ -62,7 +63,7 @@ async function call(payload, next) {
   const disabled=[...root.querySelectorAll('button:not(:disabled)')];
   disabled.forEach(node=>node.disabled=true);
   try {
-    const response=await fetch('/api/workspace',payload ? {
+    const response=await request('/api/workspace',payload ? {
       method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)
     } : {});
     const data=await response.json();
@@ -70,7 +71,7 @@ async function call(payload, next) {
     state=data;
     if (payload?.action==='delete') {
       selected.clear();
-      await fetch('/api/workspace');
+      await request('/api/workspace');
     }
     if (next) view=next;
     render();
@@ -93,6 +94,11 @@ function scan() {
       const links=group(...sources.map(source=>external('https://www.'+source.domain,'Search '+source.name)));
       root.append(links);
     }
+    return;
+  }
+  if (state.hosted) {
+    root.append(el('p','Try the full workflow with fictional listings. This preview sends no SMS or removal requests.'),
+      group(button('Load Fictional Matches',()=>call({action:'demo'},'review'),true)));
     return;
   }
   if (state.pending) {
@@ -195,6 +201,7 @@ function track() {
   }
 }
 function render() {
+  if (state.hosted) document.querySelector('.privacy p').textContent='Fictional progress clears when this page reloads.';
   document.querySelector('#mode').textContent=state.demo?'Demo mode':'Guided opt-outs';
   document.querySelector('#match-count').textContent=state.listings.filter(item=>item.status==='Needs Review').length || '';
   const list=document.querySelector('#source-list');
