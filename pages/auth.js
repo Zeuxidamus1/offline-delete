@@ -254,6 +254,141 @@ function buildRow(title, detail, statusLabel, url) {
   row.append(column, right);
   return row;
 }
+function makeAction(label, style, action) {
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = style;
+  button.textContent = label;
+  button.addEventListener('click', action);
+  return button;
+}
+function listingUrl(value) {
+  try {
+    const url = new URL(value);
+    if (url.protocol === 'https:' && /(^|\\.)whitepages\\.com$/i.test(url.hostname)) return url.href;
+  } catch {}
+  return null;
+}
+function initializeFindingReview(user, findings, removals) {
+  const activeTab = document.getElementById('filter-active');
+  const dismissedTab = document.getElementById('filter-dismissed');
+  const container = document.getElementById('findings-list');
+  if (!container) return;
+  const guide = document.getElementById('removal-guide');
+  const guideListing = document.getElementById('guide-open-listing');
+  const guideSubmitted = document.getElementById('guide-submitted');
+  const guideFeedback = document.getElementById('guide-feedback');
+  let currentFilter = 'active';
+  let selectedFinding = null;
+  const requestMap = new Map(removals.map(x=>[x.finding_id,x]));
+
+  function notify(message) { appText('app-status', message); }
+  function paint() {
+    const visible = findings.filter(x=>currentFilter==='dismissed' ? x.match_status==='dismissed' : x.match_status!=='dismissed');
+    appText('finding-count',String(visible.length));
+    activeTab?.classList.toggle('selected',currentFilter==='active');
+    dismissedTab?.classList.toggle('selected',currentFilter==='dismissed');
+    activeTab?.setAttribute('aria-pressed',String(currentFilter==='active'));
+    dismissedTab?.setAttribute('aria-pressed',String(currentFilter==='dismissed'));
+    displayItems('findings-list',visible,currentFilter==='dismissed' ? 'No dismissed listings.' : 'No active listings.',finding=>{
+      const row = document.createElement('div');
+      row.className = 'app-item listing-result'+(finding.match_status==='confirmed'?' listing-confirmed':'');
+      const info = document.createElement('div');
+      const title = document.createElement('strong');
+      title.textContent = finding.source_name;
+      const date = document.createElement('small');
+      date.textContent = formatDate(finding.detected_at);
+      info.append(title,date);
+      const controls = document.createElement('div');
+      controls.className = 'app-item-right listing-actions';
+      const pill = document.createElement('span');
+      pill.className = 'app-pill'+(finding.match_status==='confirmed'?' confirmed-pill':'');
+      pill.textContent = finding.match_status==='confirmed' ? 'Confirmed' : finding.match_status==='dismissed'?'Not Me':'Possible';
+      controls.append(pill);
+      const url = listingUrl(finding.listing_url);
+      if (url) {
+        const link = document.createElement('a');
+        link.href = url;
+        link.target='_blank';
+        link.rel='noopener noreferrer';
+        link.textContent='View Listing';
+        controls.append(link);
+      }
+      const request = requestMap.get(finding.id);
+      if (finding.match_status==='dismissed') {
+        controls.append(makeAction('Undo','listing-secondary',()=>classify(finding,'possible')));
+      } else if (finding.match_status==='possible') {
+        controls.append(makeAction('This Is Me','listing-confirm',()=>classify(finding,'confirmed')));
+        controls.append(makeAction('Not Me','listing-secondary',()=>classify(finding,'dismissed')));
+      } else {
+        if (request?.status==='submitted' || request?.status==='verified_removed') {
+          const state=document.createElement('span');
+          state.className='app-pill';
+          state.textContent=request.status==='submitted'?'Submitted':'Verified Removed';
+          controls.append(state);
+        } else {
+          controls.append(makeAction('Continue Removal','listing-continue',()=>continueRemoval(finding)));
+          if (!request) controls.append(makeAction('Not Me','listing-secondary',()=>classify(finding,'dismissed')));
+        }
+      }
+      row.append(info,controls);
+      return row;
+    });
+  }
+  async function classify(finding,next) {
+    notify('');
+    const old = finding.match_status;
+    if (old===next) return;
+    const {data,error}=await withTimeout(supabase.from('privacy_findings')
+      .update({match_status:next}).eq('id',finding.id).eq('user_id',user.id)
+      .select('match_status').single()).catch(e=>({error:e}));
+    if (error || !data) {notify('Unable to update listing. Try again.'); return;}
+    finding.match_status=next;
+    if (next!=='confirmed' && selectedFinding?.id===finding.id) guide.hidden=true;
+    notify(next==='dismissed' ? 'Listing dismissed. Open Dismissed to undo.' : next==='confirmed' ? 'Listing confirmed.' : 'Listing restored.');
+    paint();
+  }
+  async function continueRemoval(finding) {
+    notify('');
+    const url = listingUrl(finding.listing_url);
+    if (!url) {notify('The listing URL could not be verified.');return;}
+    if (!requestMap.has(finding.id)) {
+      const {data,error}=await withTimeout(supabase.from('privacy_removals')
+        .insert({user_id:user.id,finding_id:finding.id,status:'needs_action'})
+        .select('id,finding_id,status,updated_at').single()).catch(e=>({error:e}));
+      if (error) {
+        if (error.code!=='23505') {notify('Unable to start removal. Try again.');return;}
+      } else {requestMap.set(finding.id,data);}
+    }
+    selectedFinding=finding;
+    guideListing.href=url;
+    guideFeedback.textContent='';
+    guide.hidden=false;
+    guide.scrollIntoView({behavior:'smooth',block:'nearest'});
+    paint();
+  }
+  document.getElementById('close-removal-guide')?.addEventListener('click',()=>{guide.hidden=true;});
+  guideSubmitted?.addEventListener('click',async()=>{
+    if (!selectedFinding) return;
+    const request=requestMap.get(selectedFinding.id);
+    if (!request) {guideFeedback.textContent='Could not find removal request. Refresh the page.';return;}
+    guideSubmitted.disabled=true;
+    guideFeedback.textContent='Saving request status…';
+    const {data,error}=await withTimeout(supabase.from('privacy_removals')
+      .update({status:'submitted'})
+      .eq('id',request.id).eq('user_id',user.id)
+      .select('status').single()).catch(e=>({error:e}));
+    guideSubmitted.disabled=false;
+    if (error || !data) {guideFeedback.textContent='Unable to save request status. Try again.';return;}
+    request.status='submitted';
+    guideFeedback.textContent='Request marked submitted.';
+    paint();
+  });
+  activeTab?.addEventListener('click',()=>{currentFilter='active';paint();});
+  dismissedTab?.addEventListener('click',()=>{currentFilter='dismissed';guide.hidden=true;paint();});
+  paint();
+}
+
 async function initializeCustomerApp(user) {
   const statusElement = document.getElementById('app-status');
   if (statusElement) statusElement.textContent = 'Loading your account…';
@@ -328,7 +463,7 @@ async function initializeCustomerApp(user) {
   appText('monitor-last',latest ? formatDate(latest.started_at)+' · '+latest.status : 'No scan completed yet.');
   displayItems('recent-activity',scans.slice(0,5),'No scan activity yet.',x=>buildRow('Privacy scan',formatDate(x.started_at),x.status));
   displayItems('monitor-history',scans,'No scans yet.',x=>buildRow('Privacy scan',formatDate(x.started_at),x.status));
-  displayItems('findings-list',findings,'No findings recorded yet.',x=>buildRow(x.source_name,formatDate(x.detected_at),x.match_status,x.listing_url));
+  initializeFindingReview(user,findings,removals);
   displayItems('removals-list',removals,'No removal requests recorded yet.',x=>{
     const finding = findings.find(f=>f.id===x.finding_id);
     return buildRow(finding?.source_name||'Removal request',formatDate(x.updated_at),x.status);
