@@ -206,3 +206,35 @@ body[data-page="home"] .nav-outline:hover { background:#16282c; }
 .auth-status{position:relative;margin:0 auto;max-width:860px;text-align:center;color:#faad91;}
 @media(max-width:1150px){.landing .hero{grid-template-columns:1fr;gap:30px}.landing h1{white-space:normal}.dashboard-demo{width:min(100%,750px);margin:auto}.hero-copy{text-align:center}.landing .hero-copy>p{margin-inline:auto}.hero-buttons,.trust-notes{justify-content:center}.steps{padding-top:48px}.landing-spacer{height:90px}}
 @media(max-width:700px){body[data-page="home"] header{flex-wrap:wrap;padding:12px 18px;gap:12px}.landing-nav{width:100%;gap:13px;flex-wrap:wrap;font-size:.77rem}.landing-nav .nav-get-started{padding:9px 12px}.landing-container{width:calc(100% - 30px)}.landing .hero{padding-top:36px}.landing h1{font-size:clamp(2.25rem,7.5vw,3.5rem)}.hero-buttons{flex-direction:column;align-items:stretch}.cta{width:100%}.dashboard-demo{grid-template-columns:94px minmax(0,1fr);font-size:.65rem}.demo-rail{padding:10px 5px}.demo-brand{font-size:.54rem;white-space:normal}.demo-tab{font-size:.6rem;padding:9px 5px;gap:4px;white-space:normal}.demo-body{padding:14px 8px}.demo-columns{grid-template-columns:1fr}.demo-scan{display:none}.demo-progress{padding:9px}.demo-progress .progress-value{display:none}.steps-grid{grid-template-columns:1fr;max-width:450px;gap:18px}.step-arrow{transform:rotate(90deg);font-size:1.3rem}.landing-spacer{height:70px}.landing-footer,.footer-left{flex-wrap:wrap;justify-content:center;text-align:center}.info-anchors{flex-direction:column;gap:15px}.footer-divider{display:none}}
+
+
+/* Customer profile */
+body[data-page="profile"]{background:radial-gradient(ellipse at 65% 15%,#0b4535,#071115 64%);color:#eff9f7;min-height:100vh;}
+body[data-page="profile"] header{background:#081419;border-color:#183d35;color:#fff;max-width:none;padding-inline:max(22px,calc((100% - 1170px)/2));}
+body[data-page="profile"] .brand{color:#f7fafa;font-size:1.35rem;}
+body[data-page="profile"] .brand:before{content:"♢";color:#21e7a1;margin-right:8px;}
+.profile-nav{display:flex;align-items:center;gap:26px;}
+.profile-nav a{color:#ebf3f0;text-decoration:none;font-weight:700;}
+body[data-page="profile"] button{color:#032619;background:#2be6a0;border-color:#2be6a0;}
+body[data-page="profile"] button:hover:not(:disabled){background:#65f6bb;}
+.profile-nav button{min-height:39px;padding:7px 15px;}
+.profile-page{max-width:970px;margin:auto;padding:55px 22px 100px;}
+.profile-card{border:1px solid #1f5849;background:#0b1c20;border-radius:20px;padding:clamp(24px,5vw,46px);box-shadow:0 10px 45px #0005;}
+.profile-top{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;}
+.back-link{color:#84edc1;text-decoration:none;font-weight:650;font-size:.87rem;}
+.profile-lock{color:#71cfa9;font-size:.82rem;}
+.profile-card h1{font-size:2.3rem;margin:25px 0;letter-spacing:-.05em;}
+.profile-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:22px;}
+.profile-field{display:grid;gap:8px;font-size:.9rem;font-weight:680;}
+.profile-field input{width:100%;min-width:0;min-height:45px;border-radius:10px;border:1px solid #3b625b;background:#10282a;color:#f7fffc;font:inherit;padding:10px 12px;}
+.profile-field input:focus{outline:2px solid #2be6a0;outline-offset:2px;}
+.profile-field input::placeholder{color:#799f99;}
+.profile-consent{display:flex;align-items:flex-start;gap:12px;margin:29px 0 22px;font-size:.84rem;color:#cedfdb;}
+.profile-consent input{accent-color:#21e39a;width:18px;height:18px;flex:none;}
+.profile-actions{display:flex;gap:12px;flex-wrap:wrap;}
+body[data-page="profile"] .danger-outline{background:transparent;color:#f0aeae;border-color:#8f5858;}
+body[data-page="profile"] .danger-outline:hover:not(:disabled){background:#492b2b;}
+.profile-status{font-size:.9rem;color:#9bf3ca;margin:18px 0 0;min-height:20px;}
+body[data-page="home"] .demo-tab[href]{text-decoration:none;color:#e9f2f2;}
+body[data-page="home"] .demo-tab[href]:hover{background:#174b3b;}
+@media(max-width:650px){.profile-grid{grid-template-columns:1fr}.profile-page{padding:24px 14px 60px}.profile-card{padding:22px}.profile-card h1{font-size:1.9rem}.profile-nav{gap:12px}}
