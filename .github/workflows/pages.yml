@@ -51,6 +51,10 @@ jobs:
           }
           if (!authBundle.includes('add-manual-listing')) process.exit(1);
           if (!authBundle.includes('verification_checks')) process.exit(1);
+          if (!authBundle.includes('verify-listing')) process.exit(1);
+          if (!scanResults.includes('id=\"source-check-list\"')) process.exit(1);
+          const monitoring = readFileSync('pages-dist/monitoring.html','utf8');
+          if (!monitoring.includes('id=\"monitor-alerts\"')) process.exit(1);
           if (!scanResults.includes('id=\"removal-guide\"')) process.exit(1);
           for (const id of ['guide-steps','guide-show-all','guide-progress-track','guide-submitted']) {
             if (!scanResults.includes('id=\"' + id + '\"')) process.exit(1);
