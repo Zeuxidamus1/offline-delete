@@ -27,6 +27,8 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm test
+      - run: node --check pages/auth.js
+      - run: node --check build-pages.mjs
       - run: node build-pages.mjs
       - name: Verify profile navigation in generated site
         run: |
@@ -43,6 +45,8 @@ jobs:
           if (!home.includes('href=\"./dashboard.html\"')) process.exit(1);
           if (!dashboard.includes('id=\"start-scan\"')) process.exit(1);
           if (!scanResults.includes('id=\"findings-list\"')) process.exit(1);
+          if (!scanResults.includes('id=\"filter-dismissed\"')) process.exit(1);
+          if (!scanResults.includes('id=\"removal-guide\"')) process.exit(1);
           if (!authBundle.includes('privacy-scan')) process.exit(1);
           "
       - uses: actions/upload-pages-artifact@v3
