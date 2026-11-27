@@ -47,6 +47,10 @@ jobs:
           if (!scanResults.includes('id=\"findings-list\"')) process.exit(1);
           if (!scanResults.includes('id=\"filter-dismissed\"')) process.exit(1);
           if (!scanResults.includes('id=\"removal-guide\"')) process.exit(1);
+          for (const id of ['guide-steps','guide-show-all','guide-progress-track','guide-submitted']) {
+            if (!scanResults.includes('id=\"' + id + '\"')) process.exit(1);
+          }
+          if (!authBundle.includes('guide_steps_completed')) process.exit(1);
           if (!authBundle.includes('privacy-scan')) process.exit(1);
           "
       - uses: actions/upload-pages-artifact@v3
