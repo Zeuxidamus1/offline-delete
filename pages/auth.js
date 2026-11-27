@@ -96,7 +96,7 @@ async function initializeProfile(user) {
   const save = document.querySelector('#save-profile');
   const remove = document.querySelector('#delete-profile');
   if (!form) return;
-  const fields = ['full_name','alternate_name','phone','street_address','city','state','postal_code'];
+  const fields = ['first_name','middle_name','last_name','alternate_name','phone','street_address','city','state','postal_code'];
   function errorMessage(error) {
     if (error?.code === '42501') return 'You do not have permission to access this profile.';
     return 'Unable to save or load your profile. Please try again.';
@@ -106,7 +106,7 @@ async function initializeProfile(user) {
     form.querySelectorAll('input').forEach(input => input.disabled = true);
     try {
       const { data, error } = await withTimeout(supabase.from('customer_profiles')
-        .select('full_name, alternate_name, phone, street_address, city, state, postal_code, consent_to_search')
+        .select('first_name, middle_name, last_name, alternate_name, phone, street_address, city, state, postal_code, consent_to_search')
         .eq('user_id', user.id).maybeSingle());
       if (error) throw error;
       for (const name of fields) form.elements[name].value = data?.[name] ?? '';
@@ -122,14 +122,15 @@ async function initializeProfile(user) {
   form.addEventListener('submit', async event => {
     event.preventDefault();
     if (!form.reportValidity()) return;
-    const fullName = form.elements.full_name.value.trim();
-    if (fullName.length < 2 || fullName.length > 120) {
-      feedback.textContent = 'Enter your full name.';
+    const firstName = form.elements.first_name.value.trim();
+    const lastName = form.elements.last_name.value.trim();
+    if (!firstName || !lastName || firstName.length > 80 || lastName.length > 80) {
+      feedback.textContent = 'Enter your first and last name.';
       return;
     }
-    const payload = { user_id: user.id, full_name: fullName,
+    const payload = { user_id: user.id, first_name: firstName, last_name: lastName,
       consent_to_search: form.elements.consent_to_search.checked };
-    for (const name of fields.filter(name => name !== 'full_name')) {
+    for (const name of fields.filter(name => !['first_name','last_name'].includes(name))) {
       const value = form.elements[name].value.trim();
       payload[name] = value || null;
     }
