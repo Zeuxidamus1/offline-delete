@@ -778,28 +778,37 @@ try {
   } else if (!user && (!error || error.name === 'AuthSessionMissingError' || error.status === 401 || error.status === 403)) {
     go(signIn);
   } else if (!user) {
-    status.textContent = 'We couldn’t verify your session. Refresh to try again.';
+    const authFeedback = status || document.querySelector('#app-status');
+    if (authFeedback) authFeedback.textContent = 'We couldn’t verify your session. Refresh to try again.';
   } else {
+    // Attach logout immediately, even if the page's account data takes time to load.
+    const button = document.querySelector('#signout');
+    const authFeedback = document.querySelector('#status') || document.querySelector('#app-status');
+    if (button) {
+      button.hidden = false;
+      button.addEventListener('click', async () => {
+        if (button.disabled) return;
+        button.disabled = true;
+        button.textContent = 'Signing out…';
+        if (authFeedback) authFeedback.textContent = '';
+        try {
+          const { error: signOutError } = await withTimeout(auth.signOut({ scope: 'local' }));
+          if (signOutError) throw signOutError;
+          go(signIn);
+        } catch {
+          if (authFeedback) authFeedback.textContent = 'We couldn’t sign you out. Try again.';
+          button.disabled = false;
+          button.textContent = 'Log Out';
+        }
+      });
+    }
     if (page === 'profile') await initializeProfile(user);
     if (appPageNames.has(page)) await initializeCustomerApp(user);
-    const button = document.querySelector('#signout');
-    button.hidden = false;
-    button.addEventListener('click', async () => {
-      button.disabled = true;
-      status.textContent = '';
-      try {
-        const { error: signOutError } = await auth.signOut({ scope: 'local' });
-        if (signOutError) throw signOutError;
-        go(signIn);
-      } catch {
-        status.textContent = 'We couldn’t sign you out. Try again.';
-        button.disabled = false;
-      }
-    });
     window.addEventListener('pageshow', event => {
       if (event.persisted) window.location.reload();
     });
   }
 } catch {
-  status.textContent = 'Authentication is temporarily unavailable. Refresh to try again.';
+  const authFeedback = status || document.querySelector('#app-status');
+  if (authFeedback) authFeedback.textContent = 'Authentication is temporarily unavailable. Refresh to try again.';
 }
