@@ -238,3 +238,17 @@ body[data-page="profile"] .danger-outline:hover:not(:disabled){background:#492b2
 body[data-page="home"] .demo-tab[href]{text-decoration:none;color:#e9f2f2;}
 body[data-page="home"] .demo-tab[href]:hover{background:#174b3b;}
 @media(max-width:650px){.profile-grid{grid-template-columns:1fr}.profile-page{padding:24px 14px 60px}.profile-card{padding:22px}.profile-card h1{font-size:1.9rem}.profile-nav{gap:12px}}
+
+
+/* Profile action confirmation */
+.profile-toast[hidden]{display:none!important;}
+.profile-toast{position:fixed;right:24px;bottom:24px;z-index:1100;display:flex;align-items:center;gap:14px;width:min(410px,calc(100vw - 32px));min-height:68px;padding:15px 17px;border:1px solid #3ff1ac;border-radius:14px;background:#10352e;color:#effff6;box-shadow:0 16px 50px #0009;font-weight:700;opacity:0;transform:translateY(14px);transition:opacity .2s ease,transform .2s ease;}
+.profile-toast.is-visible{opacity:1;transform:translateY(0);}
+.profile-toast-icon{display:grid;place-items:center;flex:none;width:36px;height:36px;border-radius:50%;background:#26e49a;color:#063326;font-size:22px;font-weight:900;}
+.profile-toast.is-error{border-color:#eb9797;background:#482626;}
+.profile-toast.is-error .profile-toast-icon{background:#f5a6a6;color:#4c1111;}
+.profile-toast #profile-toast-message{flex:1;line-height:1.4;}
+body[data-page="profile"] .profile-toast-close{border:0!important;background:transparent!important;color:#d8efea!important;font-size:24px;min-width:26px;padding:2px;cursor:pointer;}
+body[data-page="profile"] #save-profile:disabled{opacity:.7;cursor:progress;}
+@media(max-width:550px){.profile-toast{right:16px;bottom:16px;}}
+@media(prefers-reduced-motion:reduce){.profile-toast{transition:none;transform:none;}}
