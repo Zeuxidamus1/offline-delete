@@ -108,17 +108,28 @@ async function runScheduledScan(db:any,settings:any,sites:Site[],key:string) {
     .select("source_name,listing_url").eq("user_id",uid);
   if(previousError)throw new Error("prior lookup failed");
   const known=new Set((previous||[]).map((x:{source_name:string;listing_url:string})=>x.source_name+"|"+x.listing_url));
+  const {data:removed}=await db.from("privacy_removals").select("finding_id").eq("user_id",uid).eq("status","verified_removed");
+  const removedIds=new Set((removed||[]).map((x:{finding_id:string})=>x.finding_id));
+  const {data:oldRemoved}=await db.from("privacy_findings").select("id,source_name,listing_url").eq("user_id",uid);
+  const removedUrls=new Map((oldRemoved||[])
+    .filter((x:{id:string})=>removedIds.has(x.id))
+    .map((x:{source_name:string;listing_url:string;id:string})=>[x.source_name+"|"+x.listing_url,x.id]));
   const results:Awaited<ReturnType<typeof discover>>[]=[];
   for(let i=0;i<indexed.length;i+=3){
     results.push(...await Promise.all(indexed.slice(i,i+3).map(site=>discover(site,profile as Profile,key))));
   }
   const findings:{user_id:string;scan_id:string;source_name:string;listing_url:string;match_status:string}[]=[];
   const checks:{user_id:string;scan_id:string;site_slug:string;status:string;findings_count:number}[]=[];
+  const resurfacedIds=new Set<string>();
   for(const result of results){
    let found=0;
    for(const href of result.urls){
     const k=result.site.name+"|"+href;
-    if(known.has(k))continue;
+    if(known.has(k)){
+      const priorId=removedUrls.get(k);
+      if(priorId)resurfacedIds.add(String(priorId));
+      continue;
+    }
     known.add(k);found++;
     findings.push({user_id:uid,scan_id:scan.id,source_name:result.site.name,listing_url:href,match_status:"possible"});
    }
@@ -136,6 +147,12 @@ async function runScheduledScan(db:any,settings:any,sites:Site[],key:string) {
         user_id:uid,finding_id:f.id,event:"possible_exposure",message:"Possible listing found on "+f.source_name
       })));
     }
+  }
+  if(resurfacedIds.size){
+    await db.from("monitoring_notifications").insert([...resurfacedIds].map(finding_id=>({
+      user_id:uid,finding_id,event:"possible_exposure",
+      message:"A previously removed listing may be indexed again"
+    })));
   }
   const {error:checksError}=await db.from("scan_source_results").insert(checks);
   if(checksError)throw new Error("coverage save failed");
