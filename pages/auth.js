@@ -1,6 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 
-const { auth } = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
+const supabase = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
   auth: {
     flowType: 'pkce',
     storageKey: 'offline-delete-auth',
@@ -9,6 +9,7 @@ const { auth } = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
   }
 });
 
+const { auth } = supabase;
 const signIn = new URL('./', window.location.href);
 const home = new URL('./home.html', signIn);
 const page = document.body.dataset.page;
@@ -88,9 +89,91 @@ if (signInButton) {
   });
 }
 
+
+async function initializeProfile(user) {
+  const form = document.querySelector('#profile-form');
+  const feedback = document.querySelector('#status');
+  const save = document.querySelector('#save-profile');
+  const remove = document.querySelector('#delete-profile');
+  if (!form) return;
+  const fields = ['full_name','alternate_name','phone','street_address','city','state','postal_code'];
+  function errorMessage(error) {
+    if (error?.code === '42501') return 'You do not have permission to access this profile.';
+    return 'Unable to save or load your profile. Please try again.';
+  }
+  async function loadProfile() {
+    feedback.textContent = 'Loading profile…';
+    form.querySelectorAll('input').forEach(input => input.disabled = true);
+    try {
+      const { data, error } = await withTimeout(supabase.from('customer_profiles')
+        .select('full_name, alternate_name, phone, street_address, city, state, postal_code, consent_to_search')
+        .eq('user_id', user.id).maybeSingle());
+      if (error) throw error;
+      for (const name of fields) form.elements[name].value = data?.[name] ?? '';
+      form.elements.consent_to_search.checked = data?.consent_to_search === true;
+      remove.hidden = !data;
+      feedback.textContent = data ? '' : 'No profile saved yet.';
+    } catch (error) {
+      feedback.textContent = error.message === 'timeout' ? 'Profile request timed out. Refresh and try again.' : errorMessage(error);
+    } finally {
+      form.querySelectorAll('input').forEach(input => input.disabled = false);
+    }
+  }
+  form.addEventListener('submit', async event => {
+    event.preventDefault();
+    if (!form.reportValidity()) return;
+    const fullName = form.elements.full_name.value.trim();
+    if (fullName.length < 2 || fullName.length > 120) {
+      feedback.textContent = 'Enter your full name.';
+      return;
+    }
+    const payload = { user_id: user.id, full_name: fullName,
+      consent_to_search: form.elements.consent_to_search.checked };
+    for (const name of fields.filter(name => name !== 'full_name')) {
+      const value = form.elements[name].value.trim();
+      payload[name] = value || null;
+    }
+    save.disabled = true;
+    remove.disabled = true;
+    feedback.textContent = 'Saving profile…';
+    try {
+      const { error } = await withTimeout(supabase.from('customer_profiles')
+        .upsert(payload, { onConflict: 'user_id' }));
+      if (error) throw error;
+      remove.hidden = false;
+      feedback.textContent = 'Profile saved.';
+    } catch (error) {
+      feedback.textContent = error.message === 'timeout' ? 'Save timed out. Check your connection.' : errorMessage(error);
+    } finally {
+      save.disabled = false;
+      remove.disabled = false;
+    }
+  });
+  remove.addEventListener('click', async () => {
+    if (!window.confirm('Delete your saved profile details? This will not delete your login account.')) return;
+    remove.disabled = true;
+    save.disabled = true;
+    feedback.textContent = 'Deleting profile…';
+    try {
+      const { error } = await withTimeout(supabase.from('customer_profiles')
+        .delete().eq('user_id', user.id));
+      if (error) throw error;
+      form.reset();
+      remove.hidden = true;
+      feedback.textContent = 'Profile deleted.';
+    } catch (error) {
+      feedback.textContent = error.message === 'timeout' ? 'Delete request timed out. Try again.' : errorMessage(error);
+    } finally {
+      remove.disabled = false;
+      save.disabled = false;
+    }
+  });
+  await loadProfile();
+}
+
 try {
   const { data: { user }, error } = await withTimeout(auth.getUser());
-  if (page !== 'home') {
+  if (page !== 'home' && page !== 'profile') {
     if (user) {
       go(home);
     } else {
@@ -105,6 +188,7 @@ try {
   } else if (!user) {
     status.textContent = 'We couldn’t verify your session. Refresh to try again.';
   } else {
+    if (page === 'profile') await initializeProfile(user);
     const button = document.querySelector('#signout');
     button.hidden = false;
     button.addEventListener('click', async () => {
