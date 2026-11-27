@@ -96,6 +96,26 @@ async function initializeProfile(user) {
   const save = document.querySelector('#save-profile');
   const remove = document.querySelector('#delete-profile');
   if (!form) return;
+  const toast = document.querySelector('#profile-toast');
+  const toastMessage = document.querySelector('#profile-toast-message');
+  const toastClose = document.querySelector('#profile-toast-close');
+  let toastTimer;
+  function hideToast() {
+    clearTimeout(toastTimer);
+    toast.hidden = true;
+    toast.classList.remove('is-visible');
+  }
+  function showToast(message, type = 'success') {
+    clearTimeout(toastTimer);
+    toastMessage.textContent = message;
+    toast.classList.toggle('is-error', type === 'error');
+    toast.querySelector('.profile-toast-icon').textContent = type === 'error' ? '!' : '✓';
+    toast.hidden = false;
+    toast.classList.remove('is-visible');
+    requestAnimationFrame(() => toast.classList.add('is-visible'));
+    if (type === 'success') toastTimer = setTimeout(hideToast, 4500);
+  }
+  toastClose?.addEventListener('click', hideToast);
   const fields = ['first_name','middle_name','last_name','alternate_name','phone','street_address','city','state','postal_code'];
   function errorMessage(error) {
     if (error?.code === '42501') return 'You do not have permission to access this profile.';
@@ -134,24 +154,30 @@ async function initializeProfile(user) {
       const value = form.elements[name].value.trim();
       payload[name] = value || null;
     }
+    hideToast();
     save.disabled = true;
     remove.disabled = true;
     feedback.textContent = 'Saving profile…';
+    save.textContent = 'Saving…';
     try {
       const { error } = await withTimeout(supabase.from('customer_profiles')
         .upsert(payload, { onConflict: 'user_id' }));
       if (error) throw error;
       remove.hidden = false;
-      feedback.textContent = 'Profile saved.';
+      feedback.textContent = '';
+      showToast('Profile saved successfully');
     } catch (error) {
-      feedback.textContent = error.message === 'timeout' ? 'Save timed out. Check your connection.' : errorMessage(error);
+      feedback.textContent = '';
+      showToast(error.message === 'timeout' ? 'Save timed out. Check your connection.' : errorMessage(error), 'error');
     } finally {
       save.disabled = false;
+      save.textContent = 'Save Profile';
       remove.disabled = false;
     }
   });
   remove.addEventListener('click', async () => {
     if (!window.confirm('Delete your saved profile details? This will not delete your login account.')) return;
+    hideToast();
     remove.disabled = true;
     save.disabled = true;
     feedback.textContent = 'Deleting profile…';
@@ -161,9 +187,11 @@ async function initializeProfile(user) {
       if (error) throw error;
       form.reset();
       remove.hidden = true;
-      feedback.textContent = 'Profile deleted.';
+      feedback.textContent = '';
+      showToast('Profile deleted successfully');
     } catch (error) {
-      feedback.textContent = error.message === 'timeout' ? 'Delete request timed out. Try again.' : errorMessage(error);
+      feedback.textContent = '';
+      showToast(error.message === 'timeout' ? 'Delete request timed out. Try again.' : errorMessage(error), 'error');
     } finally {
       remove.disabled = false;
       save.disabled = false;
