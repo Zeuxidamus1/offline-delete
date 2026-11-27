@@ -384,6 +384,9 @@ function initializeFindingReview(user, findings, removals) {
       const info = document.createElement('div');
       const title = document.createElement('strong');
       title.textContent = finding.source_name;
+      info.append(title);
+      const date = document.createElement('small');
+      date.textContent = formatDate(finding.detected_at);
       const request = requestMap.get(finding.id);
       const isFinalStatus = finding.match_status === 'confirmed' &&
         (request?.status === 'submitted' || request?.status === 'verified_removed');
@@ -392,10 +395,9 @@ function initializeFindingReview(user, findings, removals) {
         sourceCaption.className = 'listing-source-caption';
         sourceCaption.textContent = finding.match_status === 'confirmed' ? 'Your listing' :
           finding.match_status === 'dismissed' ? 'Dismissed listing' : 'Potential match';
-        const date = document.createElement('small');
-        date.textContent = formatDate(finding.detected_at);
-        info.append(sourceCaption,date);
+        info.append(sourceCaption);
       }
+      info.append(date);
       const controls = document.createElement('div');
       controls.className = 'app-item-right listing-actions';
       if (isFinalStatus) {
