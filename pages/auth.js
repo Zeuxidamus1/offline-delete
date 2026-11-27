@@ -275,6 +275,8 @@ function initializeFindingReview(user, findings, removals) {
   const container = document.getElementById('findings-list');
   if (!container) return;
   const guide = document.getElementById('removal-guide');
+  const guideEmpty = document.getElementById('guide-empty');
+  function closeGuide(){guide.hidden=true; if(guideEmpty) guideEmpty.hidden=false; selectedFinding=null;}
   const guideListing = document.getElementById('guide-open-listing');
   const guideSubmitted = document.getElementById('guide-submitted');
   const guideFeedback = document.getElementById('guide-feedback');
@@ -293,12 +295,16 @@ function initializeFindingReview(user, findings, removals) {
     displayItems('findings-list',visible,currentFilter==='dismissed' ? 'No dismissed listings.' : 'No active listings.',finding=>{
       const row = document.createElement('div');
       row.className = 'app-item listing-result'+(finding.match_status==='confirmed'?' listing-confirmed':'');
+      if (selectedFinding?.id===finding.id) row.classList.add('listing-selected');
       const info = document.createElement('div');
       const title = document.createElement('strong');
       title.textContent = finding.source_name;
+      const sourceCaption = document.createElement('span');
+      sourceCaption.className = 'listing-source-caption';
+      sourceCaption.textContent = finding.match_status==='confirmed' ? 'Your listing' : finding.match_status==='dismissed' ? 'Dismissed listing' : 'Potential match';
       const date = document.createElement('small');
       date.textContent = formatDate(finding.detected_at);
-      info.append(title,date);
+      info.append(title,sourceCaption,date);
       const controls = document.createElement('div');
       controls.className = 'app-item-right listing-actions';
       const pill = document.createElement('span');
@@ -344,7 +350,7 @@ function initializeFindingReview(user, findings, removals) {
       .select('match_status').single()).catch(e=>({error:e}));
     if (error || !data) {notify('Unable to update listing. Try again.'); return;}
     finding.match_status=next;
-    if (next!=='confirmed' && selectedFinding?.id===finding.id) guide.hidden=true;
+    if (next!=='confirmed' && selectedFinding?.id===finding.id) closeGuide();
     notify(next==='dismissed' ? 'Listing dismissed. Open Dismissed to undo.' : next==='confirmed' ? 'Listing confirmed.' : 'Listing restored.');
     paint();
   }
@@ -364,10 +370,11 @@ function initializeFindingReview(user, findings, removals) {
     guideListing.href=url;
     guideFeedback.textContent='';
     guide.hidden=false;
+    if (guideEmpty) guideEmpty.hidden=true;
     guide.scrollIntoView({behavior:'smooth',block:'nearest'});
     paint();
   }
-  document.getElementById('close-removal-guide')?.addEventListener('click',()=>{guide.hidden=true;});
+  document.getElementById('close-removal-guide')?.addEventListener('click',closeGuide);
   guideSubmitted?.addEventListener('click',async()=>{
     if (!selectedFinding) return;
     const request=requestMap.get(selectedFinding.id);
@@ -385,7 +392,7 @@ function initializeFindingReview(user, findings, removals) {
     paint();
   });
   activeTab?.addEventListener('click',()=>{currentFilter='active';paint();});
-  dismissedTab?.addEventListener('click',()=>{currentFilter='dismissed';guide.hidden=true;paint();});
+  dismissedTab?.addEventListener('click',()=>{currentFilter='dismissed';closeGuide();paint();});
   paint();
 }
 
