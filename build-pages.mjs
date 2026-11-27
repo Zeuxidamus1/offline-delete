@@ -7,6 +7,8 @@ if (!SUPABASE_URL || !/^https:\/\/[a-z0-9]+\.supabase\.co$/.test(SUPABASE_URL) |
   throw new Error('Configure SUPABASE_URL and a Supabase publishable key before building.');
 }
 
+const assetVersion = (process.env.GITHUB_SHA || 'profile-fields-v2').slice(0,12);
+
 function page(name, title, header, content) {
   return `<!doctype html>
 <html lang="en">
@@ -15,8 +17,8 @@ function page(name, title, header, content) {
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="referrer" content="no-referrer">
 <title>${title}</title>
-<link rel="stylesheet" href="./account-password.css">
-<script type="module" src="./account-password.js"></script>
+<link rel="stylesheet" href="./account-password.css?v=${assetVersion}">
+<script type="module" src="./account-password.js?v=${assetVersion}"></script>
 </head>
 <body data-page="${name}">
 <header><a class="brand" href="${(name === 'home' || name === 'profile') ? '/offline-delete/home.html' : './'}">Offline Delete</a>${header}</header>
