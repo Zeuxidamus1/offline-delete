@@ -28,4 +28,4 @@ The name and date of birth are validated and discarded. City and state are guida
 
 ## GitHub Pages
 
-This frontend uses Supabase Auth email links with PKCE. The public build uses fictional workspace data in memory. Enable GitHub Actions as the Pages source. In Supabase Auth URL Configuration set the Site URL and redirect URL to https://zeuxidamus1.github.io/offline-delete/. Configure a custom SMTP provider before inviting public users. The only key bundled into the frontend is the Supabase publishable key.
+This frontend uses Supabase Auth email links with PKCE. The public build contains signup, sign-in, sign-out, and an empty authenticated homepage. Sign-in is limited to existing accounts and signup creates the account. Enable GitHub Actions as the Pages source. In Supabase Auth URL Configuration set the Site URL and redirect URL to https://zeuxidamus1.github.io/offline-delete/. Configure a custom SMTP provider before inviting public users. The only key bundled into the frontend is the Supabase publishable key.
