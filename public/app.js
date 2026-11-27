@@ -201,6 +201,9 @@ function track() {
   }
 }
 function render() {
+  document.querySelector('#metric-review').textContent=state.listings.filter(item=>item.status==='Needs Review').length;
+  document.querySelector('#metric-progress').textContent=state.listings.filter(item=>['Submitted','Action Needed','Still Listed'].includes(item.status)).length;
+  document.querySelector('#metric-removed').textContent=state.listings.filter(item=>item.status==='Removal Verified').length;
   if (state.hosted) document.querySelector('.privacy p').textContent='Fictional progress clears when this page reloads.';
   document.querySelector('#mode').textContent=state.demo?'Demo mode':'Guided opt-outs';
   document.querySelector('#match-count').textContent=state.listings.filter(item=>item.status==='Needs Review').length || '';

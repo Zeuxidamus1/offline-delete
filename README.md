@@ -25,3 +25,7 @@ After phone verification, users search the brokers directly, add the exact profi
 ## Data handling
 
 The name and date of birth are validated and discarded. City and state are guidance for manual matching. The pending SMS session stores the phone temporarily and expires after ten minutes. Verification sends the phone and code to Twilio. The application encrypts SQLite payloads with AES-256-GCM and uses a random HttpOnly browser session cookie. Workspaces and listings expire after 24 hours without an update. Users can delete their workspace earlier. A session is tied to the original browser and does not support sign-in recovery or cross-device access.
+
+## Hosted dashboard
+
+The public site uses Sites' managed ChatGPT sign-in. The hosted dashboard loads fictional listings in the current page only. Run `node build-preview.mjs` to generate the Worker bundle. The local Node server retains its separate guided opt-out workflow.

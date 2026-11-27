@@ -7,9 +7,14 @@
 <script type="module" src="/app.js"></script>
 </head>
 <body>
-<header class="bar"><div class="bar-inner"><a class="brand" href="/"><span class="mark" aria-hidden="true">◈</span>Offline Delete</a><span id="mode" class="mode"></span></div></header>
+<header class="bar"><div class="bar-inner"><a class="brand" href="/"><span class="mark" aria-hidden="true">◈</span>Offline Delete</a><div class="account"><span id="mode" class="mode"></span><!-- sign-out --></div></div></header>
 <main>
-<section class="hero"><div class="hero-copy"><h1>Take your personal<br class="desktop"> information offline.</h1><p>Find your listings on people search sites, request removal, and track what’s still visible.</p></div><div class="hero-art" aria-hidden="true"><div class="orbit"><div class="orbit"><div class="orbit"><span>◈</span></div></div></div></div></section>
+<section class="hero"><div class="hero-copy"><h1>Privacy dashboard</h1><p>Review people search listings, organize removal requests, and check what’s still visible.</p></div><div class="hero-art" aria-hidden="true"><div class="orbit"><div class="orbit"><div class="orbit"><span>◈</span></div></div></div></div></section>
+<section class="metrics" aria-label="Removal activity">
+<div class="panel metric"><span id="metric-review">0</span><p>Matches to review</p></div>
+<div class="panel metric"><span id="metric-progress">0</span><p>Requests in progress</p></div>
+<div class="panel metric"><span id="metric-removed">0</span><p>Removals verified</p></div>
+</section>
 <nav class="tabs" aria-label="Privacy workflow">
 <button data-view="scan">Start Scan</button><button data-view="review">Review Matches <span id="match-count"></span></button><button data-view="track">Track Removals</button>
 </nav>
