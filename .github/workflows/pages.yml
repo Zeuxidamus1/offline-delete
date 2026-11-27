@@ -28,6 +28,16 @@ jobs:
       - run: npm ci
       - run: npm test
       - run: node build-pages.mjs
+      - name: Verify profile navigation in generated site
+        run: |
+          node --input-type=module -e "
+          import { readFileSync } from 'node:fs';
+          const home = readFileSync('pages-dist/home.html','utf8');
+          const profile = readFileSync('pages-dist/profile.html','utf8');
+          if (!home.includes('href=\"/offline-delete/profile.html\"')) process.exit(1);
+          if (!profile.includes('id=\"profile-form\"')) process.exit(1);
+          if (!profile.includes('id=\"save-profile\"')) process.exit(1);
+          "
       - uses: actions/upload-pages-artifact@v3
         with:
           path: pages-dist
