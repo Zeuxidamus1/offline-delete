@@ -278,6 +278,23 @@ function initializeFindingReview(user, findings, removals) {
   const guideEmpty = document.getElementById('guide-empty');
   function closeGuide(){guide.hidden=true; if(guideEmpty) guideEmpty.hidden=false; selectedFinding=null;}
   const guideListing = document.getElementById('guide-open-listing');
+  const guideUrl = document.getElementById('guide-listing-url');
+  const copyUrl = document.getElementById('guide-copy-url');
+  const copyStatus = document.getElementById('guide-copy-status');
+  copyUrl?.addEventListener('click',async()=>{
+    const url = guideUrl?.value;
+    if (!url || !listingUrl(url)) return;
+    try {
+      await navigator.clipboard.writeText(url);
+      copyUrl.textContent='Copied!';
+      copyStatus.textContent='Link copied';
+      window.setTimeout(()=>{copyUrl.textContent='Copy Link';copyStatus.textContent='';},2500);
+    } catch {
+      guideUrl.focus();
+      guideUrl.select();
+      copyStatus.textContent='Select and copy this link.';
+    }
+  });
   const guideSubmitted = document.getElementById('guide-submitted');
   const guideFeedback = document.getElementById('guide-feedback');
   let currentFilter = 'active';
@@ -368,6 +385,9 @@ function initializeFindingReview(user, findings, removals) {
     }
     selectedFinding=finding;
     guideListing.href=url;
+    guideUrl.value=url;
+    copyUrl.textContent='Copy Link';
+    copyStatus.textContent='';
     guideFeedback.textContent='';
     guide.hidden=false;
     if (guideEmpty) guideEmpty.hidden=true;
