@@ -357,7 +357,7 @@ function initializeFindingReview(user, findings, removals) {
     const request=currentRequest();
     if (!request || savingStep || request.status!=='needs_action') return;
     const previous=stepCount();
-    if (next<0 || next>5 || Math.abs(next-previous)!==1) return;
+    if (next<0 || next>5 || (next!==previous+1 && next>=previous)) return;
     savingStep=true;
     guideFeedback.textContent='Saving progress…';
     renderGuide();
@@ -481,6 +481,8 @@ function initializeFindingReview(user, findings, removals) {
     if (error || !data) {guideFeedback.textContent='Unable to save request status. Try again.';return;}
     request.status='submitted';
     guideFeedback.textContent='Request marked submitted.';
+    closeGuide();
+    notify('Removal request marked submitted. Track it under Removals.');
     paint();
   });
   activeTab?.addEventListener('click',()=>{currentFilter='active';paint();});
