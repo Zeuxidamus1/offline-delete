@@ -271,7 +271,7 @@ function listingUrl(value) {
   return null;
 }
 function whitepagesProfileUrl(value) { return profileLink(value); }
-function initializeFindingReview(user, findings, removals, profile) {
+function initializeFindingReview(user, findings, removals) {
   const activeTab = document.getElementById('filter-active');
   const dismissedTab = document.getElementById('filter-dismissed');
   const container = document.getElementById('findings-list');
@@ -279,88 +279,97 @@ function initializeFindingReview(user, findings, removals, profile) {
   const guide = document.getElementById('removal-guide');
   const guideEmpty = document.getElementById('guide-empty');
   function closeGuide(){guide.hidden=true; if(guideEmpty) guideEmpty.hidden=false; selectedFinding=null;}
-  const guideListing = document.getElementById('guide-open-listing');
-  const guideUrl = document.getElementById('guide-listing-url');
-  const copyUrl = document.getElementById('guide-copy-url');
-  const copyStatus = document.getElementById('guide-copy-status');
-  const urlHelp = document.getElementById('guide-url-help');
-  const checkoutInput = document.getElementById('guide-checkout-url');
-  const generateLink = document.getElementById('guide-generate-link');
-  const generateStatus = document.getElementById('guide-generate-status');
-  const guideCity = document.getElementById('guide-city');
-  const guideState = document.getElementById('guide-state');
-  const verifyBox = document.getElementById('guide-verify-box');
-  const verifyLink = document.getElementById('guide-verify-link');
-  const verifyCheck = document.getElementById('guide-verify-check');
-  let generatedCandidate = null;
-  function resetCandidate() {
-    generatedCandidate = null;
-    if (verifyBox) verifyBox.hidden = true;
-    if (verifyCheck) verifyCheck.checked = false;
-  }
-  generateLink?.addEventListener('click', () => {
-    const wpId = checkoutRecordId(checkoutInput.value);
-    if (!wpId) {
-      generateStatus.textContent = 'Paste a Whitepages checkout link containing a valid wpId.';
-      return;
-    }
-    const candidate = candidateProfileLink({
-      first_name: profile?.first_name,
-      last_name: profile?.last_name,
-      city: guideCity.value,
-      state: guideState.value
-    }, wpId);
-    if (!candidate) {
-      generateStatus.textContent = 'Add a valid city and state to create the profile link.';
-      return;
-    }
-    resetCandidate();
-    generatedCandidate = candidate;
-    guideUrl.value = candidate;
-    verifyLink.href = candidate;
-    verifyBox.hidden = false;
-    copyStatus.textContent = '';
-    generateStatus.textContent = 'Candidate link created. Open it and check that it displays your listing.';
-    validateGuideUrl();
-  });
-  verifyCheck?.addEventListener('change', validateGuideUrl);
-  function validateGuideUrl() {
-    const valid=whitepagesProfileUrl(guideUrl.value);
-    const needsCheck = valid && generatedCandidate === valid;
-    copyUrl.disabled = !valid || (needsCheck && !verifyCheck.checked);
-    if (urlHelp) urlHelp.textContent = !valid
-      ? 'Paste an individual Whitepages profile URL, not a checkout link.'
-      : needsCheck && !verifyCheck.checked
-        ? 'Open the candidate link and verify that it shows your listing before copying.'
-        : 'Profile link ready to copy.';
-    return valid;
-  }
-  guideUrl?.addEventListener('input',()=>{
-    copyStatus.textContent = '';
-    if (generatedCandidate && guideUrl.value !== generatedCandidate) resetCandidate();
-    validateGuideUrl();
-  });
-  copyUrl?.addEventListener('click',async()=>{
-    const url=validateGuideUrl();
-    if (!url || copyUrl.disabled) return;
-    try {
-      await navigator.clipboard.writeText(url);
-      copyUrl.textContent='Copied!';
-      copyStatus.textContent='Link copied';
-      window.setTimeout(()=>{copyUrl.textContent='Copy Link';copyStatus.textContent='';},2500);
-    } catch {
-      guideUrl.focus();
-      guideUrl.select();
-      copyStatus.textContent='Select and copy this link.';
-    }
-  });
+  const guideSteps = document.getElementById('guide-steps');
+  const guideShowAll = document.getElementById('guide-show-all');
+  const guideFinish = document.getElementById('guide-finish');
   const guideSubmitted = document.getElementById('guide-submitted');
   const guideFeedback = document.getElementById('guide-feedback');
+  let showAll = false;
+  let savingStep = false;
+  const steps = [
+    {title:'Click View Listing',hint:'Open your Whitepages result.',action:'listing'},
+    {title:'Select View Report',hint:'Choose View Report for the correct person.'},
+    {title:'Copy the URL',hint:'Copy the address from the new Whitepages window.'},
+    {title:'Click Opt-Out',hint:'Open the Whitepages opt-out form.',action:'optout'},
+    {title:'Paste the URL and follow the directions',hint:'Finish the request and any required verification.'}
+  ];
   let currentFilter = 'active';
   let selectedFinding = null;
   const requestMap = new Map(removals.map(x=>[x.finding_id,x]));
 
   function notify(message) { appText('app-status', message); }
+  function currentRequest() {
+    return selectedFinding ? requestMap.get(selectedFinding.id) : null;
+  }
+  function stepCount() {
+    const n = Number(currentRequest()?.guide_steps_completed ?? 0);
+    return Number.isInteger(n) ? Math.max(0,Math.min(5,n)) : 0;
+  }
+  function renderGuide() {
+    if (!selectedFinding) return;
+    const done = stepCount();
+    appText('guide-progress-label',done+' of 5 steps completed');
+    appText('guide-progress-number',done+'/5');
+    document.getElementById('guide-progress-track')?.setAttribute('aria-valuenow',String(done));
+    const fill=document.getElementById('guide-progress-fill');
+    if (fill) fill.style.width=(done*20)+'%';
+    guideShowAll.textContent=showAll?'Show fewer steps':'Show all steps';
+    guideShowAll.setAttribute('aria-expanded',String(showAll));
+    guideFinish.hidden=done!==5;
+    guideSteps.replaceChildren();
+    steps.forEach((step,index)=>{
+      if (!showAll && index>done) return;
+      const complete=index<done;
+      const available=index<=done;
+      const line=document.createElement('div');
+      line.className='guided-step '+(complete?'step-done':available?'step-current':'step-locked');
+      const circle=document.createElement('button');
+      circle.type='button';
+      circle.className='guide-step-circle';
+      circle.textContent=complete?'✓':String(index+1);
+      circle.setAttribute('aria-label',(complete?'Undo':'Complete')+' step '+(index+1)+': '+step.title);
+      circle.setAttribute('aria-pressed',String(complete));
+      circle.disabled=savingStep || !available || currentRequest()?.status!=='needs_action';
+      circle.addEventListener('click',()=>saveProgress(complete?index:index+1));
+      const content=document.createElement('div');
+      content.className='guide-step-body';
+      const title=document.createElement('strong');
+      title.textContent=step.title;
+      const description=document.createElement('p');
+      description.textContent=step.hint;
+      content.append(title,description);
+      const url=step.action==='listing'?listingUrl(selectedFinding.listing_url):
+        step.action==='optout'?'https://www.whitepages.com/suppression-requests':null;
+      if (url) {
+        const link=document.createElement('a');
+        link.className='guide-step-link';
+        link.href=url;
+        link.target='_blank';
+        link.rel='noopener noreferrer';
+        link.textContent=step.action==='listing'?'View Listing ↗':'Open Whitepages Opt-Out ↗';
+        content.append(link);
+      }
+      line.append(circle,content);
+      guideSteps.append(line);
+    });
+  }
+  async function saveProgress(next) {
+    const request=currentRequest();
+    if (!request || savingStep || request.status!=='needs_action') return;
+    const previous=stepCount();
+    if (next<0 || next>5 || Math.abs(next-previous)!==1) return;
+    savingStep=true;
+    guideFeedback.textContent='Saving progress…';
+    renderGuide();
+    const {data,error}=await withTimeout(supabase.from('privacy_removals')
+      .update({guide_steps_completed:next}).eq('id',request.id).eq('user_id',user.id)
+      .select('guide_steps_completed').single()).catch(err=>({error:err}));
+    if (error || !data) guideFeedback.textContent='Unable to save progress. Try again.';
+    else {request.guide_steps_completed=data.guide_steps_completed;guideFeedback.textContent='';}
+    savingStep=false;
+    renderGuide();
+  }
+
   function paint() {
     const visible = findings.filter(x=>currentFilter==='dismissed' ? x.match_status==='dismissed' : x.match_status!=='dismissed');
     appText('finding-count',String(visible.length));
@@ -437,33 +446,31 @@ function initializeFindingReview(user, findings, removals, profile) {
     if (!requestMap.has(finding.id)) {
       const {data,error}=await withTimeout(supabase.from('privacy_removals')
         .insert({user_id:user.id,finding_id:finding.id,status:'needs_action'})
-        .select('id,finding_id,status,updated_at').single()).catch(e=>({error:e}));
+        .select('id,finding_id,status,updated_at,guide_steps_completed').single()).catch(e=>({error:e}));
       if (error) {
         if (error.code!=='23505') {notify('Unable to start removal. Try again.');return;}
+        const existing=await withTimeout(supabase.from('privacy_removals').select('id,finding_id,status,updated_at,guide_steps_completed')
+          .eq('user_id',user.id).eq('finding_id',finding.id).single()).catch(problem=>({error:problem}));
+        if (existing.error || !existing.data) {notify('Unable to resume removal. Refresh to try again.');return;}
+        requestMap.set(finding.id,existing.data);
       } else {requestMap.set(finding.id,data);}
     }
     selectedFinding=finding;
-    guideListing.href=url;
-    resetCandidate();
-    checkoutInput.value = '';
-    generateStatus.textContent = '';
-    guideCity.value = profile?.city || '';
-    guideState.value = profile?.state || '';
-    guideUrl.value=whitepagesProfileUrl(url) || '';
-    copyUrl.textContent='Copy Link';
-    validateGuideUrl();
-    copyStatus.textContent='';
+    showAll=false;
     guideFeedback.textContent='';
     guide.hidden=false;
     if (guideEmpty) guideEmpty.hidden=true;
+    renderGuide();
     guide.scrollIntoView({behavior:'smooth',block:'nearest'});
     paint();
   }
   document.getElementById('close-removal-guide')?.addEventListener('click',closeGuide);
+  guideShowAll?.addEventListener('click',()=>{showAll=!showAll;renderGuide();});
   guideSubmitted?.addEventListener('click',async()=>{
     if (!selectedFinding) return;
     const request=requestMap.get(selectedFinding.id);
     if (!request) {guideFeedback.textContent='Could not find removal request. Refresh the page.';return;}
+    if (stepCount()!==5 || request.status!=='needs_action') return;
     guideSubmitted.disabled=true;
     guideFeedback.textContent='Saving request status…';
     const {data,error}=await withTimeout(supabase.from('privacy_removals')
@@ -488,7 +495,7 @@ async function initializeCustomerApp(user) {
     withTimeout(supabase.from('customer_profiles').select('first_name,last_name,city,state,consent_to_search').eq('user_id',user.id).maybeSingle()),
     withTimeout(supabase.from('privacy_scans').select('id,status,started_at,completed_at').eq('user_id',user.id).order('started_at',{ascending:false}).limit(100)),
     withTimeout(supabase.from('privacy_findings').select('id,source_name,listing_url,match_status,detected_at').eq('user_id',user.id).order('detected_at',{ascending:false}).limit(200)),
-    withTimeout(supabase.from('privacy_removals').select('id,finding_id,status,updated_at').eq('user_id',user.id).order('updated_at',{ascending:false}).limit(200))
+    withTimeout(supabase.from('privacy_removals').select('id,finding_id,status,updated_at,guide_steps_completed').eq('user_id',user.id).order('updated_at',{ascending:false}).limit(200))
   ]);
   const failed = queries.some(item=>item.status==='rejected'||item.value.error);
   if (failed) {
@@ -555,7 +562,7 @@ async function initializeCustomerApp(user) {
   appText('monitor-last',latest ? formatDate(latest.started_at)+' · '+latest.status : 'No scan completed yet.');
   displayItems('recent-activity',scans.slice(0,5),'No scan activity yet.',x=>buildRow('Privacy scan',formatDate(x.started_at),x.status));
   displayItems('monitor-history',scans,'No scans yet.',x=>buildRow('Privacy scan',formatDate(x.started_at),x.status));
-  initializeFindingReview(user,findings,removals,profile);
+  initializeFindingReview(user,findings,removals);
   displayItems('removals-list',removals,'No removal requests recorded yet.',x=>{
     const finding = findings.find(f=>f.id===x.finding_id);
     return buildRow(finding?.source_name||'Removal request',formatDate(x.updated_at),x.status);
