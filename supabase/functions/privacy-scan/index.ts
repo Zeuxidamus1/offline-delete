@@ -67,7 +67,9 @@ Deno.serve(async (request: Request) => {
       try {resultUrl=new URL(item.url);} catch {continue;}
       if (resultUrl.protocol !== "https:" || !/(^|\.)whitepages\.com$/i.test(resultUrl.hostname)) continue;
       if (deduped.has(resultUrl.href)) continue;
-      const combined = [item.title,item.content,decodeURIComponent(resultUrl.pathname)].filter(x=>typeof x==="string").join(" ").toLowerCase();
+      let pathText = resultUrl.pathname;
+      try { pathText = decodeURIComponent(pathText); } catch { /* keep encoded path */ }
+      const combined = [item.title,item.content,pathText].filter(x=>typeof x==="string").join(" ").toLowerCase();
       if (!combined.includes(profile.first_name.toLowerCase()) || !combined.includes(profile.last_name.toLowerCase())) continue;
       deduped.add(resultUrl.href);
       findings.push({user_id:user.id,scan_id:scan.id,source_name:"Whitepages",listing_url:resultUrl.href,match_status:"possible"});
