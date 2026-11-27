@@ -269,6 +269,14 @@ function listingUrl(value) {
   } catch {}
   return null;
 }
+function whitepagesProfileUrl(value) {
+  const href=listingUrl(value);
+  if (!href) return null;
+  const url=new URL(href);
+  const segments=url.pathname.split('/').filter(Boolean);
+  if (segments.length !== 4 || segments[0].toLowerCase()!=='name' || !/^[a-z0-9]+$/i.test(segments[3])) return null;
+  return url.origin+url.pathname;
+}
 function initializeFindingReview(user, findings, removals) {
   const activeTab = document.getElementById('filter-active');
   const dismissedTab = document.getElementById('filter-dismissed');
@@ -281,9 +289,17 @@ function initializeFindingReview(user, findings, removals) {
   const guideUrl = document.getElementById('guide-listing-url');
   const copyUrl = document.getElementById('guide-copy-url');
   const copyStatus = document.getElementById('guide-copy-status');
+  const urlHelp = document.getElementById('guide-url-help');
+  function validateGuideUrl() {
+    const valid=whitepagesProfileUrl(guideUrl.value);
+    copyUrl.disabled=!valid;
+    if (urlHelp) urlHelp.textContent=valid ? 'Profile link ready to copy.' : 'Open the individual Whitepages listing and paste its full URL, including the final profile ID.';
+    return valid;
+  }
+  guideUrl?.addEventListener('input',()=>{copyStatus.textContent='';validateGuideUrl();});
   copyUrl?.addEventListener('click',async()=>{
-    const url = guideUrl?.value;
-    if (!url || !listingUrl(url)) return;
+    const url=validateGuideUrl();
+    if (!url) return;
     try {
       await navigator.clipboard.writeText(url);
       copyUrl.textContent='Copied!';
@@ -385,8 +401,9 @@ function initializeFindingReview(user, findings, removals) {
     }
     selectedFinding=finding;
     guideListing.href=url;
-    guideUrl.value=url;
+    guideUrl.value=whitepagesProfileUrl(url) || '';
     copyUrl.textContent='Copy Link';
+    validateGuideUrl();
     copyStatus.textContent='';
     guideFeedback.textContent='';
     guide.hidden=false;
