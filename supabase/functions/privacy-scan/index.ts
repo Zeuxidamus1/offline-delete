@@ -59,6 +59,10 @@ Deno.serve(async (request: Request) => {
     if (!response.ok) throw new Error("Search provider unavailable");
     const payload = await response.json();
     if (!Array.isArray(payload.results)) throw new Error("Unexpected search provider response");
+    const {data:priorFindings,error:priorError} = await db.from("privacy_findings")
+      .select("listing_url").eq("user_id",user.id);
+    if (priorError) throw new Error("Unable to check previous findings");
+    const priorUrls = new Set((priorFindings || []).map((item:{listing_url:string})=>item.listing_url));
     const deduped = new Set<string>();
     const findings:{user_id:string;scan_id:string;source_name:string;listing_url:string;match_status:string}[]=[];
     for (const item of payload.results) {
@@ -66,7 +70,7 @@ Deno.serve(async (request: Request) => {
       let resultUrl: URL;
       try {resultUrl=new URL(item.url);} catch {continue;}
       if (resultUrl.protocol !== "https:" || !/(^|\.)whitepages\.com$/i.test(resultUrl.hostname)) continue;
-      if (deduped.has(resultUrl.href)) continue;
+      if (deduped.has(resultUrl.href) || priorUrls.has(resultUrl.href)) continue;
       let pathText = resultUrl.pathname;
       try { pathText = decodeURIComponent(pathText); } catch { /* keep encoded path */ }
       const combined = [item.title,item.content,pathText].filter(x=>typeof x==="string").join(" ").toLowerCase();
