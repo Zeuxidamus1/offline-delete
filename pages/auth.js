@@ -297,7 +297,7 @@ async function initializeCustomerApp(user) {
         appText('scan-action-note','You can run another search 24 hours after your previous attempt.');
       } else {
         scanButton.disabled = false;
-        appText('scan-action-note','Searches Whitepages through Tavily. Listings are possible matches until reviewed.');
+        appText('scan-action-note','');
         scanButton.addEventListener('click',async()=>{
           scanButton.disabled = true;
           scanButton.textContent = 'Scanning…';
@@ -322,7 +322,7 @@ async function initializeCustomerApp(user) {
     }
   }
   appText('scan-state',latest ? latest.status : 'Not started');
-  appText('scan-summary',latest ? 'Latest scan: '+formatDate(latest.started_at)+' · '+latest.status : 'No privacy scans have been run.');
+  appText('scan-summary',latest ? 'Latest scan: '+formatDate(latest.started_at)+' · '+latest.status : '');
   appText('finding-count',String(findings.length));
   appText('removal-count',String(removals.length));
   appText('monitor-last',latest ? formatDate(latest.started_at)+' · '+latest.status : 'No scan completed yet.');
