@@ -747,7 +747,9 @@ async function initializeCustomerApp(user) {
   appText('scan-coverage', checksForLastScan.length
     ? checked+' of '+sites.length+' sources searched via index'+(missed ? ' · '+missed+' unavailable' : '')
     : '');
-  appText('monitor-schedule-state', monitoringSchedule?.enabled ? 'Monitoring enabled' : 'No active monitoring schedule.');
+  appText('monitor-pill', monitoringSchedule?.enabled ? 'Enabled' : 'Not enabled');
+  appText('monitor-schedule-state', monitoringSchedule?.enabled && monitoringSchedule?.next_check_at
+    ? 'Next scan: '+formatDate(monitoringSchedule.next_check_at) : '');
   appText('monitor-alert-count',String(monitoringNotifications.length));
   displayItems('monitor-alerts',monitoringNotifications,'No alerts.',item=>
     buildRow(item.message,formatDate(item.created_at),item.event==='possible_exposure'?'Potential Match':'Notice'));
