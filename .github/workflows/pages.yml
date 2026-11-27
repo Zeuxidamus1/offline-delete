@@ -46,6 +46,11 @@ jobs:
           if (!dashboard.includes('id=\"start-scan\"')) process.exit(1);
           if (!scanResults.includes('id=\"findings-list\"')) process.exit(1);
           if (!scanResults.includes('id=\"filter-dismissed\"')) process.exit(1);
+          for (const id of ['manual-listing-form','manual-source','manual-url','source-check-list']) {
+            if (!scanResults.includes('id=\"' + id + '\"')) process.exit(1);
+          }
+          if (!authBundle.includes('add-manual-listing')) process.exit(1);
+          if (!authBundle.includes('verification_checks')) process.exit(1);
           if (!scanResults.includes('id=\"removal-guide\"')) process.exit(1);
           for (const id of ['guide-steps','guide-show-all','guide-progress-track','guide-submitted']) {
             if (!scanResults.includes('id=\"' + id + '\"')) process.exit(1);
