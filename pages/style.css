@@ -418,3 +418,34 @@ body[data-page="scan-results"] .guide-verify-box label{display:flex;align-items:
 body[data-page="scan-results"] .guide-verify-box input{width:18px;height:18px;accent-color:#27e7a5;flex:none;}
 body[data-page="scan-results"] .guide-checkout-box .guide-url-help:not(:empty){margin:9px 0 0;}
 @media(max-width:650px){body[data-page="scan-results"] #guide-generate-link{width:100%;}}
+
+
+/* Five-step guided removal checklist */
+body[data-page="scan-results"] .guide-progress-top{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-top:24px;color:#b7d8cb;font-size:.83rem;font-weight:700;}
+body[data-page="scan-results"] .guide-progress-fraction{color:#43edac;font-variant-numeric:tabular-nums;}
+body[data-page="scan-results"] .guide-progress-track{width:100%;height:6px;border-radius:100px;background:#29473f;margin:10px 0 24px;overflow:hidden;}
+body[data-page="scan-results"] #guide-progress-fill{display:block;width:0;height:100%;background:#26e3a0;border-radius:inherit;transition:width .2s ease;}
+body[data-page="scan-results"] .guided-checklist{display:grid;gap:0;}
+body[data-page="scan-results"] .guided-step{display:grid;grid-template-columns:38px minmax(0,1fr);gap:13px;position:relative;padding-bottom:23px;}
+body[data-page="scan-results"] .guided-step:not(:last-child)::after{content:"";position:absolute;top:33px;bottom:0;left:16px;width:1px;background:#376b59;}
+body[data-page="scan-results"] .guide-step-circle{width:34px;height:34px;min-height:34px;padding:0;border-radius:50%;border:1px solid #4d997a;background:#0e2926;color:#3be7a5;display:grid;place-items:center;font-size:.83rem;line-height:1;font-weight:800;}
+body[data-page="scan-results"] .guide-step-circle:disabled{opacity:.5;cursor:not-allowed;}
+body[data-page="scan-results"] .step-done .guide-step-circle{background:#26e3a0;border-color:#26e3a0;color:#06291d;}
+body[data-page="scan-results"] .step-locked .guide-step-body{opacity:.48;}
+body[data-page="scan-results"] .guide-step-circle:not(:disabled):hover{background:#37f0b3;color:#06271d;}
+body[data-page="scan-results"] .guide-step-body{min-width:0;padding:5px 0 0;}
+body[data-page="scan-results"] .guide-step-body strong{display:block;font-size:.91rem;line-height:1.4;color:#f2fbf8;}
+body[data-page="scan-results"] .step-done .guide-step-body strong{color:#68ecc0;}
+body[data-page="scan-results"] .guide-step-body p{margin:5px 0 10px;font-size:.79rem;line-height:1.5;color:#9dbbb0;}
+body[data-page="scan-results"] .guide-step-link{display:inline-flex;align-items:center;justify-content:center;max-width:100%;border:1px solid #3a8067;border-radius:9px;color:#50edb4;padding:9px 13px;text-decoration:none;font-weight:700;font-size:.81rem;}
+body[data-page="scan-results"] .guide-step-link:hover{background:#154a3b;color:#ecfff8;}
+body[data-page="scan-results"] .guide-show-all{display:block;width:100%;background:transparent;border:1px solid #37685a;color:#61e6af;min-height:42px;border-radius:10px;font-size:.84rem;margin-top:5px;}
+body[data-page="scan-results"] .guide-show-all:hover{background:#173b31;}
+body[data-page="scan-results"] .guide-finish[hidden]{display:none!important;}
+body[data-page="scan-results"] .guide-finish{display:grid;grid-template-columns:30px 1fr;align-items:center;gap:9px;margin-top:19px;padding:17px;border:1px solid #2b9870;border-radius:12px;background:#12382d;}
+body[data-page="scan-results"] .guide-finish-check{display:grid;place-items:center;height:27px;width:27px;border-radius:50%;background:#26e3a0;color:#063022;font-weight:900;}
+body[data-page="scan-results"] .guide-finish strong{font-size:.9rem;}
+body[data-page="scan-results"] #guide-submitted{grid-column:1/-1;margin-top:7px;min-height:43px;background:#27e1a1;border:1px solid #27e1a1;color:#072a20;border-radius:9px;font-weight:750;cursor:pointer;}
+body[data-page="scan-results"] #guide-submitted:disabled{opacity:.65;cursor:wait;}
+body[data-page="scan-results"] #guide-feedback:not(:empty){margin:12px 0 0;color:#badfd0;font-size:.82rem;}
+@media(prefers-reduced-motion:reduce){body[data-page="scan-results"] #guide-progress-fill{transition:none;}}
