@@ -298,3 +298,35 @@ body[data-page="dashboard"] .brand::before,body[data-page="scan-results"] .brand
 @media(max-width:1100px){.app-nav{gap:12px}.app-nav a{font-size:.76rem}}
 @media(max-width:850px){body[data-page="dashboard"] header,body[data-page="scan-results"] header,body[data-page="removals"] header,body[data-page="monitoring"] header{flex-wrap:wrap;padding-top:14px;padding-bottom:14px}.app-nav{width:100%;overflow-x:auto;flex-wrap:nowrap;padding-bottom:5px}.app-main{padding:34px 16px 70px}}
 @media(max-width:600px){.app-two-column{grid-template-columns:1fr}.app-stats{gap:8px}.app-stats article{padding:15px 11px}.app-stats strong{font-size:1.9rem}.app-stats span{font-size:.73rem}.app-panel{padding:19px}.app-title-row{align-items:flex-start;flex-direction:column}}
+
+
+/* Scan result review and removal actions */
+.listing-filters{display:flex;align-items:center;gap:8px;margin:-2px 0 16px;}
+body[data-page="scan-results"] .listing-filter{min-height:37px;background:transparent;color:#a6cabe;border:1px solid #34564f;border-radius:9px;padding:6px 16px;font-size:.85rem;}
+body[data-page="scan-results"] .listing-filter.selected{color:#062a21;background:#3befad;border-color:#3befad;}
+.listing-result{border-radius:11px;padding:17px 12px;transition:background .18s,border-color .18s,box-shadow .18s;border:1px solid transparent;border-top:1px solid #2c4e46;}
+.listing-result:first-child{border-top:1px solid transparent;}
+.listing-result.listing-confirmed{border:1px solid #23df9a;background:#0f352e;box-shadow:inset 0 0 16px #21bc7812;}
+.listing-result .listing-actions{column-gap:15px;row-gap:8px;}
+body[data-page="scan-results"] .listing-actions button{min-height:36px;padding:6px 12px;font-size:.81rem;border-radius:8px;}
+body[data-page="scan-results"] .listing-confirm{background:transparent;border:1px solid #2add9c;color:#4bf0af;}
+body[data-page="scan-results"] .listing-confirm:hover{background:#164b3c;}
+body[data-page="scan-results"] .listing-secondary{background:transparent;border:0;color:#bed6d0;padding-inline:5px;}
+body[data-page="scan-results"] .listing-secondary:hover{background:#193b34;}
+body[data-page="scan-results"] .listing-continue{background:#2be8a4;border:1px solid #2be8a4;color:#092820;font-weight:750;transition:opacity .18s,transform .18s,visibility .18s,background .18s;}
+.listing-confirmed .listing-continue{opacity:0;visibility:hidden;transform:translateY(5px);pointer-events:none;}
+.listing-confirmed:hover .listing-continue,.listing-confirmed:focus-within .listing-continue{opacity:1;visibility:visible;transform:translateY(0);pointer-events:auto;}
+body[data-page="scan-results"] .listing-continue:hover{background:#61f6bc;}
+.confirmed-pill{background:#1bd797;color:#06291f;border-color:#1bd797;}
+.app-removal-guide[hidden]{display:none!important;}
+.app-removal-guide{margin-top:24px;padding:24px;border:1px solid #23cd91;background:#102c29;border-radius:14px;}
+.app-removal-guide .app-panel-heading{margin-bottom:16px;}
+body[data-page="scan-results"] .guide-close{border:0;min-height:33px;background:transparent;color:#bdcfca;padding:3px 10px;font-size:24px;}
+.app-guide-steps{display:flex;flex-wrap:wrap;gap:12px;color:#9fe9c9;font-size:.82rem;font-weight:650;}
+.app-guide-steps span{border:1px solid #316857;border-radius:20px;padding:5px 12px;}
+.guide-buttons{display:flex;gap:10px;flex-wrap:wrap;align-items:center;}
+.guide-buttons a{padding:11px 14px;border:1px solid #376a59;border-radius:9px;text-decoration:none;color:#5bf0b8;font-size:.86rem;font-weight:700;}
+body[data-page="scan-results"] #guide-submitted{background:#2ae4a0;color:#073023;border-color:#2ae4a0;font-size:.86rem;}
+@media(hover:none),(pointer:coarse){.listing-confirmed .listing-continue{opacity:1;visibility:visible;transform:none;pointer-events:auto;}}
+@media(max-width:650px){.listing-result{display:flex;flex-direction:column;align-items:stretch;gap:10px}.listing-result .listing-actions{justify-content:flex-start;}.app-removal-guide{padding:17px;}.guide-buttons>*{width:100%;text-align:center;}}
+@media(prefers-reduced-motion:reduce){.listing-result,.listing-result .listing-continue{transition:none;}}
