@@ -1,0 +1,44 @@
+name: Register live deployment
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/register-deployment.yml']
+
+permissions:
+  deployments: write
+
+concurrency: offline-delete-deployment-record
+
+jobs:
+  register:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      GH_TOKEN: ${{ github.token }}
+      LIVE_URL: https://offline-delete.jrusso332623.chatgpt.site/
+      LIVE_COMMIT: 88aa06947af96728a605571be56df2ef085a910f
+    steps:
+      - name: Verify the published login page
+        run: |
+          curl --fail --silent --show-error --location --max-time 30 "$LIVE_URL" -o "$RUNNER_TEMP/login.html"
+          grep -Fq 'Continue with ChatGPT' "$RUNNER_TEMP/login.html"
+
+      - name: Record the hosted release in GitHub
+        run: |
+          endpoint="repos/$GITHUB_REPOSITORY/deployments"
+          existing=$(gh api "$endpoint?environment=production&sha=$LIVE_COMMIT" --jq '.[0].id // empty')
+          if [ -z "$existing" ]; then
+            existing=$(jq -n --arg ref "$LIVE_COMMIT" '{
+              ref: $ref,
+              environment: "production",
+              description: "Offline Delete release hosted on ChatGPT Sites",
+              auto_merge: false,
+              required_contexts: [],
+              production_environment: true
+            }' | gh api --method POST "$endpoint" --input - --jq '.id')
+          fi
+          gh api --method POST "$endpoint/$existing/statuses" \
+            -f state=success -f environment_url="$LIVE_URL" \
+            -f description='Verified the public Offline Delete login page'
