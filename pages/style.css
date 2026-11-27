@@ -27,14 +27,11 @@ main { padding: 1rem; }
   background: white;
 }
 h1 { margin: 0 0 1.5rem; font-size: 1.8rem; line-height: 1.15; }
-form { display: grid; gap: 0.75rem; }
-label { font-weight: 650; }
-input, button { font: inherit; min-height: 44px; border-radius: 0.5rem; }
-input { width: 100%; padding: 0.65rem; border: 1px solid #7b9588; }
+button { font: inherit; min-height: 44px; border-radius: 0.5rem; }
 button { padding: 0.6rem 1rem; cursor: pointer; border: 1px solid #174737; color: white; background: #174737; font-weight: 700; }
 button:disabled { opacity: 0.6; cursor: wait; }
 a { color: #195643; text-underline-offset: 0.18em; }
 :focus-visible { outline: 3px solid #14755b; outline-offset: 3px; }
-.switch { display: inline-flex; align-items: center; min-height: 44px; margin-top: 0.5rem; font-weight: 650; }
+#github-signin { width: 100%; }
 [role="status"] { margin: 1rem 0 0; }
 [role="status"]:empty { margin: 0; }

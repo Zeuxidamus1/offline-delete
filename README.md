@@ -28,4 +28,6 @@ The name and date of birth are validated and discarded. City and state are guida
 
 ## GitHub Pages
 
-This frontend uses Supabase Auth email links with PKCE. The public build contains signup, sign-in, sign-out, and an empty authenticated homepage. Sign-in is limited to existing accounts and signup creates the account. Enable GitHub Actions as the Pages source. In Supabase Auth URL Configuration set the Site URL and redirect URL to https://zeuxidamus1.github.io/offline-delete/. Configure a custom SMTP provider before inviting public users. The only key bundled into the frontend is the Supabase publishable key.
+Offline Delete uses Supabase Auth with GitHub OAuth and PKCE. First-time authorization creates an account. The deployed site contains sign-in, sign-out, and an empty authenticated homepage.
+
+Set the GitHub OAuth callback to the Supabase project's `/auth/v1/callback` URL. In Supabase, enable the GitHub provider, configure its client ID and secret, and allowlist `https://zeuxidamus1.github.io/offline-delete/`. Keep the client secret in Supabase. The Pages build bundles only the project's publishable Supabase key.

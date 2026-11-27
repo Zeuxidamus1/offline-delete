@@ -12,7 +12,7 @@ const { auth } = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
 const signIn = new URL('./', window.location.href);
 const home = new URL('./home.html', signIn);
 const page = document.body.dataset.page;
-const form = document.querySelector('#auth-form');
+const signInButton = document.querySelector('#github-signin');
 const status = document.querySelector('#status');
 const callback = new URL(window.location.href);
 const confirmationFailed = callback.searchParams.has('error') ||
@@ -22,29 +22,19 @@ function go(destination) {
   window.location.replace(destination.href);
 }
 
-if (form) {
-  form.addEventListener('submit', async event => {
-    event.preventDefault();
-    const button = form.querySelector('button');
-    const email = new FormData(form).get('email').trim();
-    button.disabled = true;
+if (signInButton) {
+  signInButton.addEventListener('click', async () => {
+    signInButton.disabled = true;
     status.textContent = '';
     try {
-      const { error } = await auth.signInWithOtp({
-        email,
-        options: { shouldCreateUser: page === 'signup', emailRedirectTo: signIn.href }
+      const { error } = await auth.signInWithOAuth({
+        provider: 'github',
+        options: { redirectTo: signIn.href }
       });
-      if (!error) {
-        status.textContent = 'Check your email for a confirmation link.';
-      } else if (error.status === 429) {
-        status.textContent = 'Too many requests. Try again in a few minutes.';
-      } else {
-        status.textContent = 'We couldn’t send a link. Check your email address and try again.';
-      }
+      if (error) throw error;
     } catch {
-      status.textContent = 'Sign-in is temporarily unavailable. Try again.';
-    } finally {
-      button.disabled = false;
+      status.textContent = 'GitHub sign-in is temporarily unavailable. Try again.';
+      signInButton.disabled = false;
     }
   });
 }
@@ -57,9 +47,9 @@ try {
     } else {
       if (callback.searchParams.has('code') || confirmationFailed) {
         window.history.replaceState(null, '', signIn.href);
-        status.textContent = 'This link could not be verified. Request a new one.';
+        status.textContent = 'GitHub sign-in could not be completed. Try again.';
       }
-      form.querySelector('button').disabled = false;
+      signInButton.disabled = false;
     }
   } else if (!user && (!error || error.name === 'AuthSessionMissingError' || error.status === 401 || error.status === 403)) {
     go(signIn);
