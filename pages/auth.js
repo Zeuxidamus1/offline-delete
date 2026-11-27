@@ -507,6 +507,26 @@ function initializeFindingReview(user, findings, removals, sites) {
   paint();
 }
 
+function initializeSourceCoverage(sites, sourceChecks, latestScan) {
+  const container=document.getElementById('source-check-list');
+  if(!container)return;
+  container.replaceChildren();
+  const checks=new Map(sourceChecks.filter(x=>x.scan_id===latestScan?.id).map(x=>[x.site_slug,x]));
+  for(const site of sites){
+    const row=document.createElement('div');
+    row.className='source-check-row';
+    const name=document.createElement('span');
+    name.textContent=site.name;
+    const status=document.createElement('span');
+    const check=checks.get(site.slug);
+    status.textContent=!check?'Not checked':check.status==='indexed_checked'?'Index searched':
+      check.status==='manual_required'?'Manual check needed':'Unable to check';
+    status.className='source-check-state'+(check?.status==='unable_to_check'?' state-unavailable':'');
+    row.append(name,status);
+    container.append(row);
+  }
+}
+
 function initializeSiteDirectory(sites) {
   const links=document.getElementById('supported-source-links');
   const form=document.getElementById('manual-listing-form');
@@ -712,6 +732,7 @@ async function initializeCustomerApp(user) {
   displayItems('monitor-history',scans,'No scans yet.',x=>buildRow('Privacy scan',formatDate(x.started_at),x.status));
   initializeFindingReview(user,findings,removals,sites);
   initializeSiteDirectory(sites);
+  initializeSourceCoverage(sites,sourceChecks,latest);
   initializeRemovalVerification(user,removals,findings,verificationChecks);
 
 }
