@@ -200,9 +200,103 @@ async function initializeProfile(user) {
   await loadProfile();
 }
 
+
+const appPageNames = new Set(['dashboard','scan-results','removals','monitoring']);
+function appText(id, value) {
+  const element = document.getElementById(id);
+  if (element) element.textContent = value;
+}
+function formatDate(value) {
+  if (!value) return 'Not yet';
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? 'Unknown' : parsed.toLocaleDateString(undefined, {year:'numeric',month:'short',day:'numeric'});
+}
+function displayItems(id, records, emptyText, makeRow) {
+  const container = document.getElementById(id);
+  if (!container) return;
+  container.replaceChildren();
+  if (!records.length) {
+    container.className = 'app-empty';
+    container.textContent = emptyText;
+    return;
+  }
+  container.className = 'app-items';
+  for (const record of records) container.append(makeRow(record));
+}
+function buildRow(title, detail, statusLabel, url) {
+  const row = document.createElement('div');
+  row.className = 'app-item';
+  const column = document.createElement('div');
+  const name = document.createElement('strong');
+  name.textContent = title;
+  const description = document.createElement('small');
+  description.textContent = detail;
+  column.append(name, description);
+  const right = document.createElement('div');
+  right.className = 'app-item-right';
+  const tag = document.createElement('span');
+  tag.className = 'app-pill';
+  tag.textContent = statusLabel;
+  right.append(tag);
+  if (url) {
+    try {
+      const u = new URL(url);
+      if (u.protocol === 'https:' || u.protocol === 'http:') {
+        const link = document.createElement('a');
+        link.href = u.href;
+        link.target = '_blank';
+        link.rel = 'noopener noreferrer';
+        link.textContent = 'View Listing';
+        right.append(link);
+      }
+    } catch { /* ignore invalid URLs */ }
+  }
+  row.append(column, right);
+  return row;
+}
+async function initializeCustomerApp(user) {
+  const statusElement = document.getElementById('app-status');
+  if (statusElement) statusElement.textContent = 'Loading your account…';
+  const queries = await Promise.allSettled([
+    withTimeout(supabase.from('customer_profiles').select('first_name,last_name,consent_to_search').eq('user_id',user.id).maybeSingle()),
+    withTimeout(supabase.from('privacy_scans').select('id,status,started_at,completed_at').eq('user_id',user.id).order('started_at',{ascending:false}).limit(100)),
+    withTimeout(supabase.from('privacy_findings').select('id,source_name,listing_url,match_status,detected_at').eq('user_id',user.id).order('detected_at',{ascending:false}).limit(200)),
+    withTimeout(supabase.from('privacy_removals').select('id,finding_id,status,updated_at').eq('user_id',user.id).order('updated_at',{ascending:false}).limit(200))
+  ]);
+  const failed = queries.some(item=>item.status==='rejected'||item.value.error);
+  if (failed) {
+    if (statusElement) statusElement.textContent = 'Some account information could not be loaded. Refresh to try again.';
+    return;
+  }
+  if (statusElement) statusElement.textContent = '';
+  const [profile,scans,findings,removals] = queries.map(x=>x.value.data);
+  const latest = scans[0];
+  const pending = removals.filter(x=>x.status!=='verified_removed').length;
+  const removed = removals.filter(x=>x.status==='verified_removed').length;
+  const activeFindings = findings.filter(x=>x.match_status!=='dismissed');
+  appText('count-exposures',String(activeFindings.length));
+  appText('count-pending',String(pending));
+  appText('count-removed',String(removed));
+  appText('profile-greeting',profile?.first_name ? 'Welcome, '+profile.first_name : 'Your privacy overview');
+  appText('profile-state',!profile ? 'Complete your profile to prepare for scans.' :
+    profile.consent_to_search ? 'Profile saved and search authorization enabled.' : 'Profile saved. Search authorization is not enabled.');
+  appText('scan-state',latest ? latest.status : 'Not started');
+  appText('scan-summary',latest ? 'Latest scan: '+formatDate(latest.started_at)+' · '+latest.status : 'No privacy scans have been run.');
+  appText('finding-count',String(findings.length));
+  appText('removal-count',String(removals.length));
+  appText('monitor-last',latest ? formatDate(latest.started_at)+' · '+latest.status : 'No scan completed yet.');
+  displayItems('recent-activity',scans.slice(0,5),'No scan activity yet.',x=>buildRow('Privacy scan',formatDate(x.started_at),x.status));
+  displayItems('monitor-history',scans,'No scans yet.',x=>buildRow('Privacy scan',formatDate(x.started_at),x.status));
+  displayItems('findings-list',findings,'No findings recorded yet.',x=>buildRow(x.source_name,formatDate(x.detected_at),x.match_status,x.listing_url));
+  displayItems('removals-list',removals,'No removal requests recorded yet.',x=>{
+    const finding = findings.find(f=>f.id===x.finding_id);
+    return buildRow(finding?.source_name||'Removal request',formatDate(x.updated_at),x.status);
+  });
+}
+
 try {
   const { data: { user }, error } = await withTimeout(auth.getUser());
-  if (page !== 'home' && page !== 'profile') {
+  if (page !== 'home' && page !== 'profile' && !appPageNames.has(page)) {
     if (user) {
       go(home);
     } else {
@@ -218,6 +312,7 @@ try {
     status.textContent = 'We couldn’t verify your session. Refresh to try again.';
   } else {
     if (page === 'profile') await initializeProfile(user);
+    if (appPageNames.has(page)) await initializeCustomerApp(user);
     const button = document.querySelector('#signout');
     button.hidden = false;
     button.addEventListener('click', async () => {
