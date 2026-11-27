@@ -19,7 +19,7 @@ function page(name, title, header, content) {
 <script type="module" src="./account-password.js"></script>
 </head>
 <body data-page="${name}">
-<header><a class="brand" href="./">Offline Delete</a>${header}</header>
+<header><a class="brand" href="${name === 'home' ? './home.html' : './'}">Offline Delete</a>${header}</header>
 ${content}
 </body>
 </html>
