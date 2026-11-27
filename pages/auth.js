@@ -384,39 +384,45 @@ function initializeFindingReview(user, findings, removals) {
       const info = document.createElement('div');
       const title = document.createElement('strong');
       title.textContent = finding.source_name;
-      const sourceCaption = document.createElement('span');
-      sourceCaption.className = 'listing-source-caption';
-      sourceCaption.textContent = finding.match_status==='confirmed' ? 'Your listing' : finding.match_status==='dismissed' ? 'Dismissed listing' : 'Potential match';
-      const date = document.createElement('small');
-      date.textContent = formatDate(finding.detected_at);
-      info.append(title,sourceCaption,date);
+      const request = requestMap.get(finding.id);
+      const isFinalStatus = finding.match_status === 'confirmed' &&
+        (request?.status === 'submitted' || request?.status === 'verified_removed');
+      if (!isFinalStatus) {
+        const sourceCaption = document.createElement('span');
+        sourceCaption.className = 'listing-source-caption';
+        sourceCaption.textContent = finding.match_status === 'confirmed' ? 'Your listing' :
+          finding.match_status === 'dismissed' ? 'Dismissed listing' : 'Potential match';
+        const date = document.createElement('small');
+        date.textContent = formatDate(finding.detected_at);
+        info.append(sourceCaption,date);
+      }
       const controls = document.createElement('div');
       controls.className = 'app-item-right listing-actions';
-      const pill = document.createElement('span');
-      pill.className = 'app-pill'+(finding.match_status==='confirmed'?' confirmed-pill':'');
-      pill.textContent = finding.match_status==='confirmed' ? 'Confirmed' : finding.match_status==='dismissed'?'Not Me':'Possible';
-      controls.append(pill);
-      const url = listingUrl(finding.listing_url);
-      if (url) {
-        const link = document.createElement('a');
-        link.href = url;
-        link.target='_blank';
-        link.rel='noopener noreferrer';
-        link.textContent='View Listing';
-        controls.append(link);
-      }
-      const request = requestMap.get(finding.id);
-      if (finding.match_status==='dismissed') {
-        controls.append(makeAction('Undo','listing-secondary',()=>classify(finding,'possible')));
-      } else if (finding.match_status==='possible') {
-        controls.append(makeAction('This Is Me','listing-confirm',()=>classify(finding,'confirmed')));
-        controls.append(makeAction('Not Me','listing-secondary',()=>classify(finding,'dismissed')));
+      if (isFinalStatus) {
+        const status = document.createElement('span');
+        status.className = 'app-pill confirmed-pill';
+        status.textContent = request.status === 'submitted' ? 'Submitted' : 'Verified Removed';
+        controls.append(status);
       } else {
-        if (request?.status==='submitted' || request?.status==='verified_removed') {
-          const state=document.createElement('span');
-          state.className='app-pill';
-          state.textContent=request.status==='submitted'?'Submitted':'Verified Removed';
-          controls.append(state);
+        const pill = document.createElement('span');
+        pill.className = 'app-pill' + (finding.match_status === 'confirmed' ? ' confirmed-pill' : '');
+        pill.textContent = finding.match_status === 'confirmed' ? 'Confirmed' :
+          finding.match_status === 'dismissed' ? 'Not Me' : 'Possible';
+        controls.append(pill);
+        const url = listingUrl(finding.listing_url);
+        if (url) {
+          const link = document.createElement('a');
+          link.href = url;
+          link.target = '_blank';
+          link.rel = 'noopener noreferrer';
+          link.textContent = 'View Listing';
+          controls.append(link);
+        }
+        if (finding.match_status === 'dismissed') {
+          controls.append(makeAction('Undo','listing-secondary',()=>classify(finding,'possible')));
+        } else if (finding.match_status === 'possible') {
+          controls.append(makeAction('This Is Me','listing-confirm',()=>classify(finding,'confirmed')));
+          controls.append(makeAction('Not Me','listing-secondary',()=>classify(finding,'dismissed')));
         } else {
           controls.append(makeAction('Continue Removal','listing-continue',()=>continueRemoval(finding)));
           if (!request) controls.append(makeAction('Not Me','listing-secondary',()=>classify(finding,'dismissed')));
