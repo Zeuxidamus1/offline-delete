@@ -37,6 +37,13 @@ jobs:
           if (!home.includes('href=\"/offline-delete/profile.html\"')) process.exit(1);
           if (!profile.includes('id=\"profile-form\"')) process.exit(1);
           if (!profile.includes('id=\"save-profile\"')) process.exit(1);
+          const dashboard = readFileSync('pages-dist/dashboard.html','utf8');
+          const scanResults = readFileSync('pages-dist/scan-results.html','utf8');
+          const authBundle = readFileSync('pages-dist/account-password.js','utf8');
+          if (!home.includes('href=\"./dashboard.html\"')) process.exit(1);
+          if (!dashboard.includes('id=\"start-scan\"')) process.exit(1);
+          if (!scanResults.includes('id=\"findings-list\"')) process.exit(1);
+          if (!authBundle.includes('privacy-scan')) process.exit(1);
           "
       - uses: actions/upload-pages-artifact@v3
         with:
