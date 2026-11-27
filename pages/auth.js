@@ -19,6 +19,13 @@ const callback = new URL(window.location.href);
 const confirmationFailed = callback.searchParams.has('error') ||
   new URLSearchParams(callback.hash.slice(1)).has('error');
 
+function withTimeout(promise, milliseconds = 12000) {
+  return Promise.race([
+    promise,
+    new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), milliseconds))
+  ]);
+}
+
 function go(destination) {
   window.location.replace(destination.href);
 }
@@ -32,11 +39,11 @@ if (passwordForm) {
     const signingUp = page === 'signup';
     submit.disabled = true;
     signInButton.disabled = true;
-    status.textContent = '';
+    status.textContent = signingUp ? 'Creating your account…' : 'Signing you in…';
     try {
-      const { data, error } = signingUp
-        ? await auth.signUp({ ...credentials, options: { emailRedirectTo: signIn.href } })
-        : await auth.signInWithPassword(credentials);
+      const { data, error } = await withTimeout(signingUp
+        ? auth.signUp({ ...credentials, options: { emailRedirectTo: signIn.href } })
+        : auth.signInWithPassword(credentials));
       if (error) {
         const messages = {
           email_not_confirmed: 'Confirm your email before signing in.',
@@ -55,8 +62,8 @@ if (passwordForm) {
       } else {
         status.textContent = 'We couldn’t sign you in. Try again.';
       }
-    } catch {
-      status.textContent = 'Authentication is temporarily unavailable. Try again.';
+    } catch (error) {
+      status.textContent = error.message === 'timeout' ? 'Sign-in is taking too long. Check your connection and try again.' : 'Authentication is temporarily unavailable. Try again.';
     } finally {
       submit.disabled = false;
       signInButton.disabled = false;
@@ -67,12 +74,12 @@ if (passwordForm) {
 if (signInButton) {
   signInButton.addEventListener('click', async () => {
     signInButton.disabled = true;
-    status.textContent = '';
+    status.textContent = 'Connecting to GitHub…';
     try {
-      const { error } = await auth.signInWithOAuth({
+      const { error } = await withTimeout(auth.signInWithOAuth({
         provider: 'github',
         options: { redirectTo: signIn.href }
-      });
+      }));
       if (error) throw error;
     } catch {
       status.textContent = 'GitHub sign-in is temporarily unavailable. Try again.';
@@ -82,7 +89,7 @@ if (signInButton) {
 }
 
 try {
-  const { data: { user }, error } = await auth.getUser();
+  const { data: { user }, error } = await withTimeout(auth.getUser());
   if (page !== 'home') {
     if (user) {
       go(home);
@@ -91,8 +98,7 @@ try {
         window.history.replaceState(null, '', signIn.href);
         status.textContent = 'We couldn’t verify this sign-in. Try again.';
       }
-      signInButton.disabled = false;
-      passwordForm.querySelector('button').disabled = false;
+      // Sign-in controls are enabled in the HTML from the start.
     }
   } else if (!user && (!error || error.name === 'AuthSessionMissingError' || error.status === 401 || error.status === 403)) {
     go(signIn);
