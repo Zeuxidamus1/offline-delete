@@ -400,3 +400,21 @@ body[data-page="scan-results"] #guide-copy-status:not(:empty){display:block;marg
 body[data-page="scan-results"] .guide-url-help{font-size:.79rem;color:#a4c6b9;margin:9px 0 0;line-height:1.45;}
 body[data-page="scan-results"] #guide-copy-url:disabled{opacity:.4;cursor:not-allowed;}
 body[data-page="scan-results"] #guide-listing-url:focus{outline:2px solid #2ce5a4;outline-offset:2px;}
+
+
+/* Whitepages checkout link helper */
+body[data-page="scan-results"] .guide-checkout-box{padding:0 0 16px;margin:0 0 17px;border-bottom:1px solid #2a4a43;}
+body[data-page="scan-results"] .guide-checkout-box>label{display:block;font-size:.83rem;font-weight:700;color:#ddf5e9;margin-bottom:9px;}
+body[data-page="scan-results"] .guide-checkout-row{display:flex;flex-wrap:wrap;gap:8px;}
+body[data-page="scan-results"] .guide-checkout-row input{flex:1 1 185px;min-width:0;background:#091d1e;color:#e8fff6;border:1px solid #386358;border-radius:9px;padding:10px;font:inherit;font-size:.78rem;}
+body[data-page="scan-results"] #guide-generate-link{min-height:42px;background:#165440;color:#a6f3d2;border:1px solid #328667;font-size:.79rem;white-space:nowrap;padding:9px 12px;}
+body[data-page="scan-results"] .guide-location-row{display:grid;grid-template-columns:minmax(0,2fr) minmax(0,1fr);gap:10px;margin-top:11px;}
+body[data-page="scan-results"] .guide-location-row label{display:grid;gap:5px;color:#b9d1c8;font-size:.77rem;font-weight:600;}
+body[data-page="scan-results"] .guide-location-row input{min-width:0;background:#091d1e;color:#e8fff6;border:1px solid #386358;border-radius:8px;padding:9px;font:inherit;font-size:.82rem;}
+body[data-page="scan-results"] .guide-verify-box[hidden]{display:none!important;}
+body[data-page="scan-results"] .guide-verify-box{display:grid;gap:10px;margin-top:12px;padding:13px;border:1px solid #346b57;border-radius:9px;background:#12312a;}
+body[data-page="scan-results"] .guide-verify-box a{color:#49ebb0;font-weight:700;text-decoration:none;font-size:.84rem;}
+body[data-page="scan-results"] .guide-verify-box label{display:flex;align-items:center;gap:9px;color:#e2f5ef;font-size:.8rem;cursor:pointer;}
+body[data-page="scan-results"] .guide-verify-box input{width:18px;height:18px;accent-color:#27e7a5;flex:none;}
+body[data-page="scan-results"] .guide-checkout-box .guide-url-help:not(:empty){margin:9px 0 0;}
+@media(max-width:650px){body[data-page="scan-results"] #guide-generate-link{width:100%;}}
