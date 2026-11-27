@@ -602,7 +602,8 @@ function initializeRemovalVerification(user,removals,findings,checks) {
     if(recent){
       const detail=document.createElement('p');
       const labels={still_visible:'Still visible',unable_to_verify:'Unable to verify',
-        user_reported_absent:'Customer reported absent',provider_confirmed_removed:'Provider-confirmed removal'};
+        user_reported_absent:'Customer reported absent',provider_confirmed_removed:'Provider-confirmed removal',
+        index_reference_found:'Indexed listing found',index_reference_missing:'Not found in search index'};
       detail.textContent='Last check: '+(labels[recent.outcome]||recent.outcome)+' · '+formatDate(recent.checked_at);
       row.append(detail);
     }
@@ -638,6 +639,25 @@ function initializeRemovalVerification(user,removals,findings,checks) {
         window.location.reload();
       });
       tool.append(select,button);
+      const recheck=document.createElement('button');
+      recheck.type='button';recheck.textContent='Check Search Index';
+      recheck.addEventListener('click',async()=>{
+        recheck.disabled=true;
+        feedback.textContent='Checking indexed listing…';
+        try {
+          const {data,error}=await supabase.functions.invoke('verify-listing',{method:'POST',body:{removal_id:removal.id}});
+          if(error){
+            let message='Could not check listing.';
+            try{const response=await error.context?.json();if(response?.error)message=response.error;}catch{}
+            throw new Error(message);
+          }
+          if(!data?.outcome)throw new Error('Could not check listing.');
+          feedback.textContent='Index check recorded. This does not verify removal.';
+          window.location.reload();
+        }catch(error){feedback.textContent=error.message||'Could not check listing.';}
+        finally{recheck.disabled=false;}
+      });
+      tool.append(recheck);
       row.append(tool);
     }
     return row;
