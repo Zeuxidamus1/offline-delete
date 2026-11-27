@@ -70,6 +70,9 @@ Deno.serve(async (request: Request) => {
       let resultUrl: URL;
       try {resultUrl=new URL(item.url);} catch {continue;}
       if (resultUrl.protocol !== "https:" || !/(^|\.)whitepages\.com$/i.test(resultUrl.hostname)) continue;
+      const segments = resultUrl.pathname.split("/").filter(Boolean);
+      // Search-result URLs are not accepted by the Whitepages suppression form.
+      if (segments.length !== 4 || segments[0].toLowerCase() !== "name" || !/^[a-z0-9]+$/i.test(segments[3])) continue;
       if (deduped.has(resultUrl.href) || priorUrls.has(resultUrl.href)) continue;
       let pathText = resultUrl.pathname;
       try { pathText = decodeURIComponent(pathText); } catch { /* keep encoded path */ }
