@@ -67,7 +67,7 @@ const files = {
   'index.html': accountPage('signin', 'Sign in', 'Create account', './signup.html'),
   'signup.html': accountPage('signup', 'Create account', 'Sign in', './'),
   'home.html': page('home', 'Offline Delete', homeNavigation, homeMarkup + '<p id="status" role="status" class="auth-status"></p>'),
-  'profile.html': page('profile', 'My Profile | Offline Delete', '<nav class="profile-nav"><a href="./home.html">Home</a><button id="signout" type="button" hidden>Log Out</button></nav>', profileMarkup),
+  'profile.html': page('profile', 'My Profile | Offline Delete', appNavigation, profileMarkup),
   'dashboard.html': page('dashboard', 'Dashboard | Offline Delete', appNavigation, appPages.dashboard),
   'scan-results.html': page('scan-results', 'Scan Results | Offline Delete', appNavigation, appPages['scan-results']),
   'removals.html': page('removals', 'Removals | Offline Delete', appNavigation, appPages.removals),
