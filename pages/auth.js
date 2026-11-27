@@ -507,6 +507,123 @@ function initializeFindingReview(user, findings, removals, sites) {
   paint();
 }
 
+function initializeSiteDirectory(sites) {
+  const links=document.getElementById('supported-source-links');
+  const form=document.getElementById('manual-listing-form');
+  if (!links || !form) return;
+  const selector=document.getElementById('manual-source');
+  const urlField=document.getElementById('manual-url');
+  const status=document.getElementById('manual-status');
+  const save=document.getElementById('manual-save');
+  links.replaceChildren();
+  selector.replaceChildren();
+  for(const site of sites) {
+    const option=document.createElement('option');
+    option.value=site.slug;
+    option.textContent=site.name;
+    selector.append(option);
+    const url=listingUrl(site.search_url);
+    if (url) {
+      const anchor=document.createElement('a');
+      anchor.href=url;
+      anchor.target='_blank';
+      anchor.rel='noopener noreferrer';
+      anchor.textContent=site.name+' ↗';
+      links.append(anchor);
+    }
+  }
+  form.addEventListener('submit',async event=>{
+    event.preventDefault();
+    status.textContent='';
+    save.disabled=true;
+    save.textContent='Saving…';
+    try {
+      const {data,error}=await supabase.functions.invoke('add-manual-listing',{
+        method:'POST',body:{site_slug:selector.value,listing_url:urlField.value.trim()}
+      });
+      if(error) {
+        let message='Unable to save listing.';
+        try {const response=await error.context?.json();if(response?.error)message=response.error;} catch {}
+        throw new Error(message);
+      }
+      if(!data?.finding_id) throw new Error('Unable to save listing.');
+      status.textContent=data.already_saved?'This listing is already saved.':'Listing saved. Refreshing…';
+      if(!data.already_saved) window.location.reload();
+    }catch(error){status.textContent=error.message||'Unable to save listing.';}
+    finally{save.disabled=false;save.textContent='Save Listing';}
+  });
+}
+
+function initializeRemovalVerification(user,removals,findings,checks) {
+  const container=document.getElementById('removals-list');
+  if(!container)return;
+  const feedback=document.getElementById('verification-feedback');
+  const findingMap=new Map(findings.map(f=>[f.id,f]));
+  const latest=new Map();
+  for(const check of checks) if(!latest.has(check.removal_id))latest.set(check.removal_id,check);
+  displayItems('removals-list',removals,'No removal requests recorded yet.',removal=>{
+    const finding=findingMap.get(removal.finding_id);
+    const row=document.createElement('div');
+    row.className='removal-tracking-item';
+    const heading=document.createElement('div');
+    heading.className='removal-tracking-heading';
+    const title=document.createElement('strong');
+    title.textContent=finding?.source_name||'Removal request';
+    const badge=document.createElement('span');
+    badge.className='app-pill';
+    badge.textContent=removal.status==='needs_action'?'Action Required':
+      removal.status==='verified_removed'?'Verified Removed':
+      removal.status==='submitted'?'Submitted':'Pending';
+    heading.append(title,badge);
+    const date=document.createElement('small');
+    date.textContent='Updated '+formatDate(removal.updated_at);
+    row.append(heading,date);
+    const recent=latest.get(removal.id);
+    if(recent){
+      const detail=document.createElement('p');
+      const labels={still_visible:'Still visible',unable_to_verify:'Unable to verify',
+        user_reported_absent:'Customer reported absent',provider_confirmed_removed:'Provider-confirmed removal'};
+      detail.textContent='Last check: '+(labels[recent.outcome]||recent.outcome)+' · '+formatDate(recent.checked_at);
+      row.append(detail);
+    }
+    if(removal.status==='submitted' || removal.status==='pending'){
+      const tool=document.createElement('div');
+      tool.className='verification-actions';
+      const valid=listingUrl(finding?.listing_url);
+      if(valid){
+        const link=document.createElement('a');
+        link.href=valid;link.target='_blank';link.rel='noopener noreferrer';link.textContent='View Listing ↗';
+        tool.append(link);
+      }
+      const select=document.createElement('select');
+      select.setAttribute('aria-label','Result of checking '+(finding?.source_name||'listing'));
+      for(const [value,label] of [
+        ['still_visible','Still visible'],
+        ['user_reported_absent','I cannot find the listing'],
+        ['unable_to_verify','Unable to verify']]){
+        const opt=document.createElement('option');opt.value=value;opt.textContent=label;select.append(opt);
+      }
+      const button=document.createElement('button');
+      button.type='button';button.textContent='Record Check';
+      button.addEventListener('click',async()=>{
+        button.disabled=true;
+        feedback.textContent='Saving check…';
+        const outcome=select.value;
+        const {error}=await withTimeout(supabase.from('verification_checks')
+          .insert({user_id:user.id,removal_id:removal.id,method:'customer_report',outcome}))
+          .catch(problem=>({error:problem}));
+        button.disabled=false;
+        if(error){feedback.textContent='Unable to save check. Try again.';return;}
+        feedback.textContent='Check saved. This does not confirm removal.';
+        window.location.reload();
+      });
+      tool.append(select,button);
+      row.append(tool);
+    }
+    return row;
+  });
+}
+
 async function initializeCustomerApp(user) {
   const statusElement = document.getElementById('app-status');
   if (statusElement) statusElement.textContent = 'Loading your account…';
