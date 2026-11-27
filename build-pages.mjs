@@ -39,10 +39,10 @@ function accountPage(name, title, switchText, switchLink) {
 <input id="email" name="email" type="email" autocomplete="email" required>
 <label for="password">Password</label>
 <input id="password" name="password" type="password" autocomplete="${signingUp ? 'new-password' : 'current-password'}"${length} required>
-<button type="submit" disabled>${title}</button>
+<button type="submit">${title}</button>
 </form>
 <div class="auth-divider" aria-hidden="true">or</div>
-<button id="github-signin" type="button" disabled>Continue with GitHub</button>
+<button id="github-signin" type="button">Continue with GitHub</button>
 <p id="status" role="status"></p>
 </div>
 <div class="account-switch"><a href="${switchLink}">${switchText}</a></div>
