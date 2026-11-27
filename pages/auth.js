@@ -514,7 +514,11 @@ async function initializeCustomerApp(user) {
     withTimeout(supabase.from('customer_profiles').select('first_name,last_name,city,state,consent_to_search').eq('user_id',user.id).maybeSingle()),
     withTimeout(supabase.from('privacy_scans').select('id,status,started_at,completed_at').eq('user_id',user.id).order('started_at',{ascending:false}).limit(100)),
     withTimeout(supabase.from('privacy_findings').select('id,source_name,listing_url,match_status,detected_at').eq('user_id',user.id).order('detected_at',{ascending:false}).limit(200)),
-    withTimeout(supabase.from('privacy_removals').select('id,finding_id,status,updated_at,guide_steps_completed').eq('user_id',user.id).order('updated_at',{ascending:false}).limit(200))
+    withTimeout(supabase.from('privacy_removals').select('id,finding_id,status,updated_at,guide_steps_completed').eq('user_id',user.id).order('updated_at',{ascending:false}).limit(200)),
+    withTimeout(supabase.from('supported_sites').select('slug,name,domain,search_url,optout_url,search_mode,guide_steps,integration_status').order('name')),
+    withTimeout(supabase.from('scan_source_results').select('scan_id,site_slug,status,findings_count,checked_at').eq('user_id',user.id).order('checked_at',{ascending:false}).limit(200)),
+    withTimeout(supabase.from('verification_checks').select('id,removal_id,outcome,method,checked_at').eq('user_id',user.id).order('checked_at',{ascending:false}).limit(200)),
+    withTimeout(supabase.from('monitoring_schedules').select('enabled,subscription_active,next_check_at').eq('user_id',user.id).maybeSingle())
   ]);
   const failed = queries.some(item=>item.status==='rejected'||item.value.error);
   if (failed) {
@@ -522,7 +526,7 @@ async function initializeCustomerApp(user) {
     return;
   }
   if (statusElement) statusElement.textContent = '';
-  const [profile,scans,findings,removals] = queries.map(x=>x.value.data);
+  const [profile,scans,findings,removals,sites,sourceChecks,verificationChecks,monitoringSchedule] = queries.map(x=>x.value.data);
   const latest = scans[0];
   const pending = removals.filter(x=>x.status!=='verified_removed').length;
   const removed = removals.filter(x=>x.status==='verified_removed').length;
@@ -539,7 +543,7 @@ async function initializeCustomerApp(user) {
     appText('scan-action-note','Checking search availability…');
     const {data:availability,error:availabilityError} = await supabase.functions.invoke('privacy-scan',{method:'GET'});
     if (availabilityError || !availability?.ready) {
-      appText('scan-action-note','Whitepages search integration is awaiting its free search API connection.');
+      appText('scan-action-note','Search service is not connected.');
     } else if (!profile) {
       appText('scan-action-note','Save your profile before searching.');
     } else if (!profile.consent_to_search) {
@@ -554,7 +558,7 @@ async function initializeCustomerApp(user) {
         scanButton.addEventListener('click',async()=>{
           scanButton.disabled = true;
           scanButton.textContent = 'Scanning…';
-          appText('scan-action-note','Searching indexed Whitepages pages…');
+          appText('scan-action-note','Searching supported sites through the search index…');
           try {
             const {data,error}=await supabase.functions.invoke('privacy-scan',{method:'POST'});
             if (error) {
@@ -579,13 +583,20 @@ async function initializeCustomerApp(user) {
   appText('finding-count',String(findings.length));
   appText('removal-count',String(removals.length));
   appText('monitor-last',latest ? formatDate(latest.started_at)+' · '+latest.status : 'No scan completed yet.');
+  const checksForLastScan = latest ? sourceChecks.filter(x=>x.scan_id===latest.id) : [];
+  const checked = checksForLastScan.filter(x=>x.status==='indexed_checked').length;
+  const missed = checksForLastScan.filter(x=>x.status==='unable_to_check').length;
+  appText('scan-coverage', checksForLastScan.length
+    ? checked+' of '+sites.length+' sources searched via index'+(missed ? ' · '+missed+' unavailable' : '')
+    : '');
+  appText('monitor-schedule-state', monitoringSchedule?.enabled ? 'Monitoring enabled' : 'No active monitoring schedule.');
+
   displayItems('recent-activity',scans.slice(0,5),'No scan activity yet.',x=>buildRow('Privacy scan',formatDate(x.started_at),x.status));
   displayItems('monitor-history',scans,'No scans yet.',x=>buildRow('Privacy scan',formatDate(x.started_at),x.status));
   initializeFindingReview(user,findings,removals,sites);
-  displayItems('removals-list',removals,'No removal requests recorded yet.',x=>{
-    const finding = findings.find(f=>f.id===x.finding_id);
-    return buildRow(finding?.source_name||'Removal request',formatDate(x.updated_at),x.status);
-  });
+  initializeSiteDirectory(sites);
+  initializeRemovalVerification(user,removals,findings,verificationChecks);
+
 }
 
 try {
