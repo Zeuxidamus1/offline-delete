@@ -265,7 +265,7 @@ function makeAction(label, style, action) {
 function listingUrl(value) {
   try {
     const url = new URL(value);
-    if (url.protocol === 'https:' && /(^|\\.)whitepages\\.com$/i.test(url.hostname)) return url.href;
+    if (url.protocol === 'https:' && /(^|\.)whitepages\.com$/i.test(url.hostname)) return url.href;
   } catch {}
   return null;
 }
