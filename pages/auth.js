@@ -148,7 +148,7 @@ if (passwordForm) {
       if (error) {
         const messages = {
           email_not_confirmed: 'Confirm your email before signing in.',
-          invalid_credentials: 'Check your email address and password.',
+          invalid_credentials: 'Incorrect email address or password. Try again or select Forgot password?',
           weak_password: 'Choose a stronger password.',
           over_email_send_rate_limit: 'Too many attempts. Try again in a few minutes.',
           over_request_rate_limit: 'Too many attempts. Try again in a few minutes.',
