@@ -791,6 +791,9 @@ async function initializeManagedCases(user) {
   const correspondenceResponse=await withTimeout(supabase.from('case_removal_correspondence')
     .select('case_id,site_slug,channel,delivery_status,submitted_at').eq('user_id',user.id));
   const correspondence=correspondenceResponse.error?[]:correspondenceResponse.data||[];
+  const followupResponse=await withTimeout(supabase.from('case_followup_reminders')
+    .select('case_id,site_slug,due_at,status').eq('user_id',user.id));
+  const followups=followupResponse.error?[]:followupResponse.data||[];
 
   let checkoutReady=false;
   try{
@@ -866,6 +869,10 @@ async function initializeManagedCases(user) {
         const badge=document.createElement('span');badge.className='app-pill';
         const sent=correspondence.find(c=>c.case_id===item.id&&c.site_slug===siteTask.site_slug);
         badge.textContent=sent?.delivery_status==='submitted'?'Submitted':siteTask.status.replaceAll('_',' ');
+        const reminder=followups.find(x=>x.case_id===item.id && x.site_slug===siteTask.site_slug);
+        if(reminder?.status==='scheduled'&&sent?.delivery_status==='submitted'){
+          badge.title='Scheduled follow-up review: '+formatDate(reminder.due_at);
+        }
         line.append(name,badge);ul.append(line);
       }
       card.append(ul);list.append(card);
@@ -939,7 +946,7 @@ async function initializeAdminOperations(user) {
     if(access)access.hidden=true;
     const root=document.getElementById('admin-dashboard');
     if(root)root.hidden=false;
-    const cases=data.cases||[],tasks=data.tasks||[],people=new Map((data.customers||[]).map(x=>[x.user_id,x])),sourceMap=new Map((data.sites||[]).map(x=>[x.slug,x])),authorizationMap=new Map((data.authorizations||[]).map(x=>[x.id,x])),letterMap=new Map((data.correspondence||[]).map(x=>[x.task_id,x])),channelMap=new Map((data.channels||[]).map(x=>[x.site_slug,x]));
+    const cases=data.cases||[],tasks=data.tasks||[],people=new Map((data.customers||[]).map(x=>[x.user_id,x])),sourceMap=new Map((data.sites||[]).map(x=>[x.slug,x])),authorizationMap=new Map((data.authorizations||[]).map(x=>[x.id,x])),letterMap=new Map((data.correspondence||[]).map(x=>[x.task_id,x])),channelMap=new Map((data.channels||[]).map(x=>[x.site_slug,x])),followupMap=new Map((data.followups||[]).map(x=>[x.case_id+'|'+x.site_slug,x]));
     appText('admin-drafts',String(cases.filter(x=>x.status==='draft').length));
     appText('admin-actives',String(cases.filter(x=>x.status==='active').length));
     appText('admin-queue-count',String(tasks.filter(x=>['research_needed','manual_action','customer_action'].includes(x.status)).length));
@@ -965,9 +972,10 @@ async function initializeAdminOperations(user) {
       const revoked=Boolean(caseRow && authorizationMap.get(caseRow.authorization_id)?.revoked_at);
       const paid=caseRow?.payment_status==='paid';
       const letter=letterMap.get(task.id);
+      const followup=followupMap.get(task.case_id+'|'+task.site_slug);
       const channel=channelMap.get(task.site_slug);
       const meta=document.createElement('small');meta.textContent=(caseRow?.payment_status||'not_configured')+' · '+task.status+
-        (letter?' · '+letter.delivery_status.replaceAll('_',' '):'')+(revoked?' · authorization revoked':'');
+        (letter?' · '+letter.delivery_status.replaceAll('_',' '):'')+(followup?' · Follow-up '+formatDate(followup.due_at)+' ('+followup.status+')':'')+(revoked?' · authorization revoked':'');
       const row=document.createElement('div');row.className='admin-task-controls';
       const select=document.createElement('select');
       for(const v of ['research_needed','manual_action','ready_to_send','customer_action','unable_to_verify','not_found']){
@@ -1017,6 +1025,20 @@ async function initializeAdminOperations(user) {
       }
       if(letter?.delivery_status==='submitted')record.disabled=true;
       row.append(select,note,save,draft,record);
+      if(followup?.status==='scheduled'&&new Date(followup.due_at).getTime()<=Date.now()){
+        const review=makeAction('Mark Follow-up Reviewed','listing-secondary',async()=>{
+          if(!window.confirm('Only mark reviewed after you have checked the provider response and recorded any necessary action. Continue?'))return;
+          review.disabled=true;
+          const {data:result,error}=await supabase.functions.invoke('case-admin',{
+            method:'POST',body:{action:'review_followup',reminder_id:followup.id}
+          });
+          if(error||!result?.reminder){meta.textContent='Could not mark follow-up reviewed.';review.disabled=false;return;}
+          review.textContent='Follow-up Reviewed';
+          meta.textContent='Follow-up reviewed. No extra message was sent automatically.';
+        });
+        if(!paid||revoked)review.disabled=true;
+        row.append(review);
+      }
       item.append(title,meta,row);container.append(item);
 
     }
