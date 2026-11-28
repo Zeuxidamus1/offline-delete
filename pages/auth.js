@@ -202,7 +202,7 @@ async function initializeProfile(user) {
 }
 
 
-const appPageNames = new Set(['dashboard','scan-results','removals','monitoring']);
+const appPageNames = new Set(['dashboard','scan-results','removals','monitoring','managed','admin']);
 function appText(id, value) {
   const element = document.getElementById(id);
   if (element) element.textContent = value;
@@ -763,6 +763,168 @@ async function initializeCustomerApp(user) {
 
 }
 
+const managedConsentStatement = 'I authorize Offline Delete to act as my agent for the purpose of locating records about me and preparing and submitting privacy or opt-out requests to supported data brokers. I understand that some sites require my own verification and that removal is not guaranteed. I can request revocation of this authorization.';
+
+async function initializeManagedCases(user) {
+  const [profiles,casesResponse,authorizationsResponse,sitesResponse]=await Promise.all([
+    withTimeout(supabase.from('customer_profiles').select('first_name,last_name,consent_to_search').eq('user_id',user.id).maybeSingle()),
+    withTimeout(supabase.from('removal_cases').select('id,status,payment_status,price_cents,authorization_id,created_at').eq('user_id',user.id).order('created_at',{ascending:false})),
+    withTimeout(supabase.from('customer_authorizations').select('id,signed_name,signed_at,revoked_at').eq('user_id',user.id).order('signed_at',{ascending:false})),
+    withTimeout(supabase.from('supported_sites').select('name,slug,search_url').order('name'))
+  ]);
+  const feedback=document.getElementById('managed-case-feedback');
+  if(profiles.error||casesResponse.error||authorizationsResponse.error||sitesResponse.error) {
+    if(feedback) feedback.textContent='Unable to load case information. Refresh to try again.';
+    return;
+  }
+  const profile=profiles.data;
+  const cases=casesResponse.data||[];
+  const authorizations=authorizationsResponse.data||[];
+  const sites=sitesResponse.data||[];
+  const tasksResponse=await withTimeout(supabase.from('case_site_tasks').select('case_id,site_slug,status').eq('user_id',user.id));
+  if(tasksResponse.error){if(feedback)feedback.textContent='Unable to load case progress.';return;}
+  const allTasks=tasksResponse.data||[];
+  const list=document.getElementById('managed-cases-list');
+  if(list){
+    list.replaceChildren();
+    for(const item of cases){
+      const tasks=allTasks.filter(t=>t.case_id===item.id);
+      const authRow=authorizations.find(a=>a.id===item.authorization_id);
+      const card=document.createElement('details');card.className='managed-case-card';
+      const head=document.createElement('summary');
+      head.textContent='Case '+item.id.slice(0,8).toUpperCase()+' · '+formatDate(item.created_at)+' · '+(item.payment_status==='paid'?'Paid': 'Payment not configured');
+      const note=document.createElement('p');
+      note.textContent='Status: '+item.status+' · '+tasks.length+' websites · '+tasks.filter(t=>t.status==='verified_removed').length+' verified removed';
+      card.append(head,note);
+      if(authRow && !authRow.revoked_at){
+        const revoke=makeAction('Revoke authorization','listing-secondary',async()=>{
+          if(!window.confirm('Revoke this authorization? Future managed requests under this authorization must stop.'))return;
+          revoke.disabled=true;
+          const {error}=await withTimeout(supabase.from('customer_authorizations')
+            .update({revoked_at:new Date().toISOString()}).eq('id',authRow.id).eq('user_id',user.id));
+          if(error){if(feedback)feedback.textContent='Could not revoke authorization.';revoke.disabled=false;}
+          else window.location.reload();
+        });
+        card.append(revoke);
+      } else if(authRow?.revoked_at) {
+        const rev=document.createElement('small');rev.textContent='Authorization revoked';card.append(rev);
+      }
+      const ul=document.createElement('div');ul.className='managed-case-sites';
+      for(const siteTask of tasks){
+        const line=document.createElement('div');line.className='managed-case-site';
+        const name=document.createElement('span');name.textContent=sites.find(x=>x.slug===siteTask.site_slug)?.name||siteTask.site_slug;
+        const badge=document.createElement('span');badge.className='app-pill';badge.textContent=siteTask.status.replaceAll('_',' ');
+        line.append(name,badge);ul.append(line);
+      }
+      card.append(ul);list.append(card);
+    }
+    if(!cases.length)list.textContent='No managed cases yet.';
+  }
+  appText('managed-case-count',String(cases.length));
+  const covered=document.getElementById('managed-covered-sites');
+  if(covered){
+    covered.replaceChildren();
+    for(const site of sites){
+      const span=document.createElement('span');span.textContent=site.name;covered.append(span);
+    }
+  }
+  const form=document.getElementById('managed-case-form');
+  if(!form)return;
+  const nameField=document.getElementById('managed-signed-name');
+  if(profile?.first_name && profile?.last_name){
+    nameField.placeholder='Type '+profile.first_name+' '+profile.last_name;
+  }
+  const currentDraft=cases.find(c=>c.status==='draft');
+  if(currentDraft){
+    form.hidden=true;
+    if(feedback)feedback.textContent='Draft created. Checkout has not been connected yet.';
+    return;
+  }
+  if(!profile?.first_name||!profile?.last_name||!profile.consent_to_search){
+    const button=document.getElementById('managed-create-case');button.disabled=true;
+    if(feedback)feedback.textContent='Complete your profile and enable search authorization before starting a case.';
+    return;
+  }
+  form.addEventListener('submit',async event=>{
+    event.preventDefault();
+    const signed=nameField.value.trim().replace(/\\s+/g,' ');
+    const expected=(profile.first_name+' '+profile.last_name).trim().replace(/\\s+/g,' ');
+    if(signed.toLocaleLowerCase()!==expected.toLocaleLowerCase()){
+      feedback.textContent='Enter your legal name exactly as shown on your profile.';return;
+    }
+    if(!document.getElementById('managed-consent').checked)return;
+    const button=document.getElementById('managed-create-case');
+    button.disabled=true;feedback.textContent='Saving authorization…';
+    try{
+      const {data:authorization,error:authError}=await withTimeout(supabase.from('customer_authorizations')
+        .insert({user_id:user.id,signed_name:signed,consent_text:managedConsentStatement})
+        .select('id').single());
+      if(authError||!authorization)throw new Error('Unable to save your authorization.');
+      const {data:caseRow,error:caseError}=await withTimeout(supabase.from('removal_cases')
+        .insert({user_id:user.id,authorization_id:authorization.id})
+        .select('id,status').single());
+      if(caseError||!caseRow)throw new Error('Authorization saved, but the case could not be created. Please retry.');
+      feedback.textContent='Your draft case is ready. No charge or requests have been sent.';
+      window.location.reload();
+    }catch(err){feedback.textContent=err.message||'Unable to save case.';button.disabled=false;}
+  });
+}
+
+async function initializeAdminOperations(user) {
+  const access=document.getElementById('admin-access-state');
+  const {data:role,error:roleError}=await withTimeout(supabase.from('case_administrators').select('user_id').eq('user_id',user.id).maybeSingle());
+  const nav=document.getElementById('admin-nav');
+  if(role&&!roleError&&nav)nav.hidden=false;
+  if(roleError||!role){if(access)access.textContent='Administrator access required.';return;}
+  const load=async()=>{
+    const {data,error}=await supabase.functions.invoke('case-admin',{method:'POST',body:{action:'list'}});
+    if(error||!data){if(access)access.textContent='Could not load administrator queue.';return;}
+    if(access)access.hidden=true;
+    const root=document.getElementById('admin-dashboard');
+    if(root)root.hidden=false;
+    const cases=data.cases||[],tasks=data.tasks||[],people=new Map((data.customers||[]).map(x=>[x.user_id,x]));
+    appText('admin-drafts',String(cases.filter(x=>x.status==='draft').length));
+    appText('admin-actives',String(cases.filter(x=>x.status==='active').length));
+    appText('admin-queue-count',String(tasks.filter(x=>['research_needed','manual_action','customer_action'].includes(x.status)).length));
+    appText('admin-task-total',String(tasks.length));
+    displayItems('admin-cases-list',cases,'No customer cases yet.',c=>{
+      const person=people.get(c.user_id);
+      return buildRow(person?[person.first_name,person.last_name].filter(Boolean).join(' '):'Customer',
+        formatDate(c.created_at)+' · '+tasks.filter(t=>t.case_id===c.id).length+' sites · '+c.payment_status,
+        c.status);
+    });
+    const container=document.getElementById('admin-tasks-list');
+    if(!container)return;
+    container.replaceChildren();
+    for(const task of tasks){
+      const caseRow=cases.find(c=>c.id===task.case_id);
+      const person=people.get(task.user_id);
+      const item=document.createElement('div');item.className='admin-task-entry';
+      const title=document.createElement('strong');
+      title.textContent=(person?[person.first_name,person.last_name].filter(Boolean).join(' '):'Customer')+' · '+task.site_slug;
+      const meta=document.createElement('small');meta.textContent=(caseRow?.payment_status||'not_configured')+' · '+task.status;
+      const row=document.createElement('div');row.className='admin-task-controls';
+      const select=document.createElement('select');
+      for(const v of ['research_needed','manual_action','ready_to_send','customer_action','unable_to_verify','not_found']){
+        const option=document.createElement('option');option.value=v;option.textContent=v.replaceAll('_',' ');option.selected=v===task.status;select.append(option);
+      }
+      const note=document.createElement('input');note.placeholder='Internal task note';note.maxLength=1500;note.value=task.internal_note||'';
+      const save=makeAction('Save','listing-confirm',async()=>{
+        save.disabled=true;
+        const {data:updated,error}=await supabase.functions.invoke('case-admin',{
+          method:'POST',body:{action:'update_task',task_id:task.id,status:select.value,note:note.value}
+        });
+        save.disabled=false;
+        if(error||!updated?.task){meta.textContent='Unable to save task.';return;}
+        meta.textContent=(caseRow?.payment_status||'not_configured')+' · '+updated.task.status;
+      });
+      row.append(select,note,save);item.append(title,meta,row);container.append(item);
+    }
+    if(!tasks.length)container.textContent='No tasks in queue.';
+  };
+  await load();
+}
+
 try {
   const { data: { user }, error } = await withTimeout(auth.getUser());
   if (page !== 'home' && page !== 'profile' && !appPageNames.has(page)) {
@@ -803,7 +965,16 @@ try {
       });
     }
     if (page === 'profile') await initializeProfile(user);
-    if (appPageNames.has(page)) await initializeCustomerApp(user);
+    if (page === 'managed') await initializeManagedCases(user);
+    else if (page === 'admin') await initializeAdminOperations(user);
+    else if (appPageNames.has(page)) await initializeCustomerApp(user);
+    if(page !== 'admin'){
+      const nav=document.getElementById('admin-nav');
+      if(nav) {
+        supabase.from('case_administrators').select('user_id').eq('user_id',user.id).maybeSingle()
+          .then(({data})=>{if(data)nav.hidden=false;}).catch(()=>{});
+      }
+    }
     window.addEventListener('pageshow', event => {
       if (event.persisted) window.location.reload();
     });
