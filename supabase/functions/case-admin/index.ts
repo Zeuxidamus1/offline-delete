@@ -13,7 +13,7 @@ Deno.serve(async req=>{
  const db=createClient(url,service,{auth:{persistSession:false}});
  const {data:admin,error:adminErr}=await db.from("case_administrators").select("user_id").eq("user_id",user.id).maybeSingle();
  if(adminErr||!admin)return response({error:"Administrator access required"},403);
- let body:{action?:string;task_id?:string;status?:string;note?:string;delivery_reference?:string};
+ let body:{action?:string;task_id?:string;status?:string;note?:string;delivery_reference?:string;reminder_id?:string};
  try{body=await req.json()}catch{return response({error:"Invalid request"},400)}
  if(body.action==="list"){
    const {data:cases,error:caseError}=await db.from("removal_cases")
@@ -24,17 +24,39 @@ Deno.serve(async req=>{
    const {data:authorizations}=authIds.length?await db.from("customer_authorizations")
       .select("id,revoked_at").in("id",authIds):{data:[]};
    const ids=(cases||[]).map(x=>x.id);
-   if(!ids.length)return response({cases:[],tasks:[],customers:[],sites:sites||[],authorizations:[],correspondence:[],channels:[]});
+   if(!ids.length)return response({cases:[],tasks:[],customers:[],sites:sites||[],authorizations:[],correspondence:[],channels:[],followups:[]});
    const users=[...new Set((cases||[]).map(x=>x.user_id))];
-   const [taskResult,profileResult,lettersResult,channelResult]=await Promise.all([
+   const [taskResult,profileResult,lettersResult,channelResult,followupResult]=await Promise.all([
      db.from("case_site_tasks").select("id,case_id,user_id,site_slug,status,channel,internal_note,updated_at")
        .in("case_id",ids).order("updated_at",{ascending:false}).limit(2200),
      db.from("customer_profiles").select("user_id,first_name,last_name").in("user_id",users),
      db.from("case_removal_correspondence").select("id,case_id,task_id,site_slug,channel,delivery_status,subject,body,delivery_reference,submitted_at").in("case_id",ids).limit(2200),
-     db.from("removal_channel_registry").select("site_slug,accepted_channel,submission_url,reviewed_at,review_notes,automated_delivery_approved")
+     db.from("removal_channel_registry").select("site_slug,accepted_channel,submission_url,reviewed_at,review_notes,automated_delivery_approved"),
+     db.from("case_followup_reminders").select("id,case_id,site_slug,due_at,status").in("case_id",ids).limit(2200)
    ]);
-   if(taskResult.error||profileResult.error||lettersResult.error||channelResult.error)return response({error:"Unable to load case details"},500);
-   return response({cases,tasks:taskResult.data||[],customers:profileResult.data||[],sites:sites||[],authorizations:authorizations||[],correspondence:lettersResult.data||[],channels:channelResult.data||[]});
+   if(taskResult.error||profileResult.error||lettersResult.error||channelResult.error||followupResult.error)return response({error:"Unable to load case details"},500);
+   return response({cases,tasks:taskResult.data||[],customers:profileResult.data||[],sites:sites||[],authorizations:authorizations||[],correspondence:lettersResult.data||[],channels:channelResult.data||[],followups:followupResult.data||[]});
+ }
+ if(body.action==="review_followup"){
+   const uuid=/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i;
+   if(!uuid.test(body.reminder_id||""))return response({error:"Invalid reminder"},400);
+   const {data:reminder}=await db.from("case_followup_reminders")
+     .select("id,case_id,user_id,site_slug,status,due_at").eq("id",body.reminder_id).maybeSingle();
+   if(!reminder||reminder.status!=="scheduled")return response({error:"Reminder not pending"},409);
+   if(new Date(reminder.due_at).getTime()>Date.now())return response({error:"Follow-up is not yet due"},409);
+   const {data:caseRow}=await db.from("removal_cases").select("payment_status,authorization_id")
+     .eq("id",reminder.case_id).eq("user_id",reminder.user_id).maybeSingle();
+   if(caseRow?.payment_status!=="paid")return response({error:"Paid case required"},403);
+   const {data:signature}=await db.from("customer_authorizations").select("revoked_at")
+     .eq("id",caseRow.authorization_id).maybeSingle();
+   if(!signature||signature.revoked_at)return response({error:"Authorization revoked"},403);
+   const {data:reviewed,error:updateError}=await db.from("case_followup_reminders")
+     .update({status:"reviewed",reviewed_at:new Date().toISOString()})
+     .eq("id",reminder.id).eq("status","scheduled").select("id,status").maybeSingle();
+   if(updateError||!reviewed)return response({error:"Could not review reminder"},409);
+   await db.from("case_events").insert({case_id:reminder.case_id,user_id:reminder.user_id,site_slug:reminder.site_slug,
+     actor_id:user.id,event_type:"followup_reviewed",detail:"Administrator reviewed the scheduled follow-up."});
+   return response({reminder:reviewed});
  }
  if(body.action==="record_manual_submission"){
    const uuid=/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i;
