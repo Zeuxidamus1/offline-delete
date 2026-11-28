@@ -133,6 +133,96 @@ button:disabled { opacity: 0.65; cursor: wait; }
 #github-signin:hover:not(:disabled) { background: #e5f1e7; }
 
 
+
+/* Sign-in, registration, and account recovery */
+body:is([data-page="signin"], [data-page="signup"]) header {
+  min-height: 64px;
+  padding-inline: max(1.25rem, calc((100% - 72rem) / 2));
+}
+.account-layout {
+  min-height: calc(100svh - 64px);
+  padding: clamp(1.5rem, 8vh, 5rem) 1rem 2.5rem;
+  background: radial-gradient(ellipse at 50% 0%, #dcece3, transparent 65%), #f3f7f5;
+}
+.account-layout .auth {
+  width: min(100%, 29rem);
+  border-color: #d6e2db;
+  box-shadow: 0 22px 65px #163a2820, 0 2px 8px #163a280a;
+}
+.account-content { padding: clamp(1.25rem, 5vw, 2.25rem); }
+.account-content h1 { margin-bottom: 1.5rem; }
+.account-content form {
+  display: grid;
+  gap: 0.5rem;
+}
+.account-content [hidden], .account-layout [hidden] { display: none !important; }
+.account-content form label {
+  font-size: 0.875rem;
+  font-weight: 650;
+}
+.account-content form input:is([type="email"], [type="password"]) {
+  width: 100%;
+  min-width: 0;
+  min-height: 46px;
+  padding: 0.625rem 0.75rem;
+  border: 1px solid #94a99e;
+  border-radius: 0.625rem;
+  background: #fff;
+  color: inherit;
+  font: inherit;
+}
+.account-content form input + label { margin-top: 0.25rem; }
+.account-content form button { margin-top: 0.375rem; }
+#forgot-password { margin-top: 0.625rem; }
+#forgot-password summary {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  min-height: 44px;
+  padding: 0.5rem 0.625rem;
+  border-radius: 0.5rem;
+  color: #205e44;
+  font-size: 0.875rem;
+  font-weight: 650;
+  cursor: pointer;
+  list-style: none;
+}
+#forgot-password summary::-webkit-details-marker { display: none; }
+#forgot-password summary::after {
+  content: "";
+  width: 0.42rem;
+  height: 0.42rem;
+  margin-left: auto;
+  border: solid currentColor;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+#forgot-password[open] summary::after { transform: rotate(225deg); }
+#forgot-password summary:hover, #forgot-password[open] summary {
+  background: #e9f3ed;
+}
+#forgot-password form {
+  margin-top: 0.5rem;
+  padding: 1rem;
+  border: 1px solid #d6e2db;
+  border-radius: 0.75rem;
+  background: #f6faf7;
+}
+.account-content #status:not(:empty) {
+  padding: 0.75rem;
+  border-radius: 0.625rem;
+  background: #eef5f0;
+  font-size: 0.875rem;
+  overflow-wrap: anywhere;
+}
+.account-content #status + a {
+  display: inline-block;
+  margin-top: 0.625rem;
+  color: #205e44;
+  font-weight: 650;
+  text-underline-offset: 0.2em;
+}
+
 /* Authenticated homepage, based on the approved Offline Delete design */
 body[data-page="home"] { background:#071014; color:#f4f7f7; min-height:100vh; overflow-x:hidden; }
 body[data-page="home"] header { position:relative; z-index:5; min-height:67px; padding-inline:max(22px,calc((100% - 1360px)/2)); background:#081116; border-bottom:1px solid #26363a66; }
