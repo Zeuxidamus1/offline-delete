@@ -882,7 +882,7 @@ async function initializeAdminOperations(user) {
     if(access)access.hidden=true;
     const root=document.getElementById('admin-dashboard');
     if(root)root.hidden=false;
-    const cases=data.cases||[],tasks=data.tasks||[],people=new Map((data.customers||[]).map(x=>[x.user_id,x]));
+    const cases=data.cases||[],tasks=data.tasks||[],people=new Map((data.customers||[]).map(x=>[x.user_id,x])),sourceMap=new Map((data.sites||[]).map(x=>[x.slug,x]));
     appText('admin-drafts',String(cases.filter(x=>x.status==='draft').length));
     appText('admin-actives',String(cases.filter(x=>x.status==='active').length));
     appText('admin-queue-count',String(tasks.filter(x=>['research_needed','manual_action','customer_action'].includes(x.status)).length));
@@ -901,7 +901,9 @@ async function initializeAdminOperations(user) {
       const person=people.get(task.user_id);
       const item=document.createElement('div');item.className='admin-task-entry';
       const title=document.createElement('strong');
-      title.textContent=(person?[person.first_name,person.last_name].filter(Boolean).join(' '):'Customer')+' · '+task.site_slug;
+      const source=sourceMap.get(task.site_slug);
+      const customerName=person?[person.first_name,person.last_name].filter(Boolean).join(' '):'Customer';
+      title.textContent=customerName+' · '+(source?.name||task.site_slug);
       const meta=document.createElement('small');meta.textContent=(caseRow?.payment_status||'not_configured')+' · '+task.status;
       const row=document.createElement('div');row.className='admin-task-controls';
       const select=document.createElement('select');
@@ -918,7 +920,23 @@ async function initializeAdminOperations(user) {
         if(error||!updated?.task){meta.textContent='Unable to save task.';return;}
         meta.textContent=(caseRow?.payment_status||'not_configured')+' · '+updated.task.status;
       });
-      row.append(select,note,save);item.append(title,meta,row);container.append(item);
+      const draft=makeAction('Copy Request Draft','listing-secondary',async()=>{
+        const subject='Authorized personal information removal request for '+customerName;
+        const body=['To the Privacy Team at '+(source?.name||task.site_slug)+',',
+          '',
+          'I am assisting '+customerName+' with an authorized personal information removal request.',
+          'Please identify and suppress or remove any publicly searchable personal information and associated people-search listings about this individual, where your policies and applicable law allow.',
+          'Please advise which record URLs, identifying details, or consumer verification steps you require, and confirm when any approved removal has been completed.',
+          'This draft must be sent only through a verified, accepted privacy-request channel. No removal has yet been submitted by this action.',
+          '',
+          'Sincerely,',
+          'Offline Delete Privacy Operations'].join('\\n');
+        try{
+          await navigator.clipboard.writeText('Subject: '+subject+'\\n\\n'+body);
+          meta.textContent='Request draft copied. Confirm the official contact route before sending.';
+        }catch{meta.textContent='Clipboard unavailable. Use a supported browser.';}
+      });
+      row.append(select,note,save,draft);item.append(title,meta,row);container.append(item);
     }
     if(!tasks.length)container.textContent='No tasks in queue.';
   };
