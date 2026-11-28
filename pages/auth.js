@@ -788,6 +788,10 @@ async function initializeManagedCases(user) {
   const tasksResponse=await withTimeout(supabase.from('case_site_tasks').select('case_id,site_slug,status').eq('user_id',user.id));
   if(tasksResponse.error){if(feedback)feedback.textContent='Unable to load case progress.';return;}
   const allTasks=tasksResponse.data||[];
+  const correspondenceResponse=await withTimeout(supabase.from('case_removal_correspondence')
+    .select('case_id,site_slug,channel,delivery_status,submitted_at').eq('user_id',user.id));
+  const correspondence=correspondenceResponse.error?[]:correspondenceResponse.data||[];
+
   let checkoutReady=false;
   try{
     const {data,error}=await withTimeout(supabase.functions.invoke('case-checkout',{method:'GET'}));
@@ -859,7 +863,9 @@ async function initializeManagedCases(user) {
       for(const siteTask of tasks){
         const line=document.createElement('div');line.className='managed-case-site';
         const name=document.createElement('span');name.textContent=sites.find(x=>x.slug===siteTask.site_slug)?.name||siteTask.site_slug;
-        const badge=document.createElement('span');badge.className='app-pill';badge.textContent=siteTask.status.replaceAll('_',' ');
+        const badge=document.createElement('span');badge.className='app-pill';
+        const sent=correspondence.find(c=>c.case_id===item.id&&c.site_slug===siteTask.site_slug);
+        badge.textContent=sent?.delivery_status==='submitted'?'Submitted':siteTask.status.replaceAll('_',' ');
         line.append(name,badge);ul.append(line);
       }
       card.append(ul);list.append(card);
@@ -933,7 +939,7 @@ async function initializeAdminOperations(user) {
     if(access)access.hidden=true;
     const root=document.getElementById('admin-dashboard');
     if(root)root.hidden=false;
-    const cases=data.cases||[],tasks=data.tasks||[],people=new Map((data.customers||[]).map(x=>[x.user_id,x])),sourceMap=new Map((data.sites||[]).map(x=>[x.slug,x])),authorizationMap=new Map((data.authorizations||[]).map(x=>[x.id,x]));
+    const cases=data.cases||[],tasks=data.tasks||[],people=new Map((data.customers||[]).map(x=>[x.user_id,x])),sourceMap=new Map((data.sites||[]).map(x=>[x.slug,x])),authorizationMap=new Map((data.authorizations||[]).map(x=>[x.id,x])),letterMap=new Map((data.correspondence||[]).map(x=>[x.task_id,x])),channelMap=new Map((data.channels||[]).map(x=>[x.site_slug,x]));
     appText('admin-drafts',String(cases.filter(x=>x.status==='draft').length));
     appText('admin-actives',String(cases.filter(x=>x.status==='active').length));
     appText('admin-queue-count',String(tasks.filter(x=>['research_needed','manual_action','customer_action'].includes(x.status)).length));
@@ -957,7 +963,11 @@ async function initializeAdminOperations(user) {
       const customerName=person?[person.first_name,person.last_name].filter(Boolean).join(' '):'Customer';
       title.textContent=customerName+' · '+(source?.name||task.site_slug);
       const revoked=Boolean(caseRow && authorizationMap.get(caseRow.authorization_id)?.revoked_at);
-      const meta=document.createElement('small');meta.textContent=(caseRow?.payment_status||'not_configured')+' · '+task.status+(revoked?' · authorization revoked':'');
+      const paid=caseRow?.payment_status==='paid';
+      const letter=letterMap.get(task.id);
+      const channel=channelMap.get(task.site_slug);
+      const meta=document.createElement('small');meta.textContent=(caseRow?.payment_status||'not_configured')+' · '+task.status+
+        (letter?' · '+letter.delivery_status.replaceAll('_',' '):'')+(revoked?' · authorization revoked':'');
       const row=document.createElement('div');row.className='admin-task-controls';
       const select=document.createElement('select');
       for(const v of ['research_needed','manual_action','ready_to_send','customer_action','unable_to_verify','not_found']){
@@ -973,24 +983,42 @@ async function initializeAdminOperations(user) {
         if(error||!updated?.task){meta.textContent='Unable to save task.';return;}
         meta.textContent=(caseRow?.payment_status||'not_configured')+' · '+updated.task.status;
       });
-      const draft=makeAction('Copy Request Draft','listing-secondary',async()=>{
-        const subject='Authorized personal information removal request for '+customerName;
-        const body=['To the Privacy Team at '+(source?.name||task.site_slug)+',',
-          '',
-          'I am assisting '+customerName+' with an authorized personal information removal request.',
-          'Please identify and suppress or remove any publicly searchable personal information and associated people-search listings about this individual, where your policies and applicable law allow.',
-          'Please advise which record URLs, identifying details, or consumer verification steps you require, and confirm when any approved removal has been completed.',
-          'I understand that you may require additional information or verification through your official privacy request process.',
-          '',
-          'Sincerely,',
-          'Offline Delete Privacy Operations'].join('\n');
+      const draft=makeAction('Copy Prepared Request','listing-secondary',async()=>{
+        if(!paid||revoked||!letter){meta.textContent='Prepare and pay for this case before copying correspondence.';return;}
         try{
-          await navigator.clipboard.writeText('Subject: '+subject+'\n\n'+body);
-          meta.textContent='Request draft copied. Confirm the official contact route before sending.';
+          await navigator.clipboard.writeText('Subject: '+letter.subject+'\n\n'+letter.body);
+          meta.textContent='Draft copied. Submit using the verified provider channel, not an unverified support address.';
         }catch{meta.textContent='Clipboard unavailable. Use a supported browser.';}
       });
-      if(revoked){save.disabled=true;draft.disabled=true;}
-      row.append(select,note,save,draft);item.append(title,meta,row);container.append(item);
+      if(channel?.submission_url && channel.accepted_channel==='form'){
+        try{
+          const u=new URL(channel.submission_url);
+          if(u.protocol==='https:'){
+            const link=document.createElement('a');link.href=u.href;link.target='_blank';link.rel='noopener noreferrer';
+            link.className='app-link-button';link.textContent='Official Removal Form';row.append(link);
+          }
+        }catch{}
+      }
+      const record=makeAction(letter?.delivery_status==='submitted'?'Submission Recorded':'Record Manual Submission','listing-confirm',async()=>{
+        const receipt=window.prompt('Enter the real submission confirmation, receipt number, or official request reference (minimum 8 characters). Only do this AFTER submitting the request.');
+        if(receipt===null)return;
+        if(receipt.trim().length<8){meta.textContent='A valid submission confirmation is required.';return;}
+        record.disabled=true;
+        const {data:outcome,error}=await supabase.functions.invoke('case-admin',{
+          method:'POST',body:{action:'record_manual_submission',task_id:task.id,delivery_reference:receipt.trim()}
+        });
+        if(error||!outcome?.correspondence){meta.textContent='Could not record submission. Check payment and authorization.';record.disabled=false;return;}
+        meta.textContent='Manual submission recorded · receipt saved';
+        record.textContent='Submission Recorded';
+        record.disabled=true;
+      });
+      if(!paid||revoked||!letter){
+        save.disabled=true;draft.disabled=true;record.disabled=true;
+      }
+      if(letter?.delivery_status==='submitted')record.disabled=true;
+      row.append(select,note,save,draft,record);
+      item.append(title,meta,row);container.append(item);
+
     }
     if(!tasks.length)container.textContent='No tasks in queue.';
   };
