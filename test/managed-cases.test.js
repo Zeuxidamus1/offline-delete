@@ -77,3 +77,26 @@ test('customers see correspondence progress without drafts or payment secrets',(
  assert.ok(js.includes("letterMap=new Map"));
  assert.ok(js.includes('Official Removal Form'));
 });
+
+test('automatic removal messages require paid campaigns, verified channels and explicit sender activation',()=>{
+ const worker=read('supabase/functions/removal-dispatch/index.ts');
+ assert.ok(worker.includes('REMOVAL_DISPATCH_ENABLED'));
+ assert.ok(worker.includes('RESEND_API_KEY'));
+ assert.ok(worker.includes('REMOVAL_SENDER_EMAIL'));
+ assert.ok(worker.includes('verifyJobToken'));
+ assert.ok(worker.includes('claim_approved_removal_emails'));
+ assert.ok(worker.includes('Idempotency-Key'));
+ assert.ok(worker.includes('status:"failed"'));
+});
+test('paid case preparation exposes manual form links and records submission evidence',()=>{
+ const api=read('supabase/functions/case-admin/index.ts');
+ const js=read('pages/auth.js');
+ assert.ok(api.includes('record_manual_submission'));
+ assert.ok(api.includes('delivery_reference:receipt'));
+ assert.ok(api.includes('manual_submission_recorded'));
+ assert.ok(api.includes('caseRow.payment_status!=="paid"'));
+ assert.ok(api.includes('Submitted or completed work cannot be overwritten'));
+ assert.ok(js.includes('Copy Prepared Request'));
+ assert.ok(js.includes('Official Removal Form'));
+ assert.ok(js.includes('Record Manual Submission'));
+});
