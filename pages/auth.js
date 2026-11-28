@@ -847,8 +847,8 @@ async function initializeManagedCases(user) {
   }
   form.addEventListener('submit',async event=>{
     event.preventDefault();
-    const signed=nameField.value.trim().replace(/\\s+/g,' ');
-    const expected=(profile.first_name+' '+profile.last_name).trim().replace(/\\s+/g,' ');
+    const signed=nameField.value.trim().replace(/\s+/g,' ');
+    const expected=(profile.first_name+' '+profile.last_name).trim().replace(/\s+/g,' ');
     if(signed.toLocaleLowerCase()!==expected.toLocaleLowerCase()){
       feedback.textContent='Enter your legal name exactly as shown on your profile.';return;
     }
