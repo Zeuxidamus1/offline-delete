@@ -39,5 +39,5 @@ test('admin request drafting is not an email submission',()=>{
  const js=read('pages/auth.js');
  assert.ok(js.includes('Copy Request Draft'));
  assert.ok(js.includes('navigator.clipboard.writeText'));
- assert.ok(js.includes('No removal has yet been submitted by this action.'));
+ assert.ok(js.includes('Confirm the official contact route before sending.'));
 });
