@@ -269,7 +269,10 @@ function listingUrl(value) {
     const allowed = ['truepeoplesearch.com','fastpeoplesearch.com','usphonebook.com',
       'familytreenow.com','thatsthem.com','searchpeoplefree.com',
       'advancedbackgroundchecks.com','cyberbackgroundchecks.com',
-      'nuwber.com','whitepages.com'];
+      'nuwber.com','whitepages.com','fastbackgroundcheck.com',
+      'smartbackgroundchecks.com','peoplesearchnow.com','anywho.com',
+      '411.com','locatefamily.com','idcrawl.com','cocofinder.com',
+      'clustrmaps.com','officialusa.com','veripages.com','usa-people-search.com'];
     const host=url.hostname.toLowerCase();
     if (url.protocol==='https:' && !url.username && !url.password &&
         allowed.some(domain=>host===domain||host==='www.'+domain)) return url.href;
@@ -348,7 +351,8 @@ function initializeFindingReview(user, findings, removals, sites) {
       description.textContent=step.hint;
       content.append(title,description);
       const url=step.action==='listing'?listingUrl(selectedFinding.listing_url):
-        step.action==='optout'?listingUrl(site?.optout_url):null;
+        step.action==='optout' && site?.optout_url && site.optout_url!==site.search_url
+          ?listingUrl(site.optout_url):null;
       if (url) {
         const link=document.createElement('a');
         link.className='guide-step-link';
