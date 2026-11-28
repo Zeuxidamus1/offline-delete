@@ -36,14 +36,11 @@ let recoveryUserId;
 if (page === 'signin') {
   const recovery = document.createElement('div');
   recovery.innerHTML = `
-    <details id="forgot-password">
-      <summary>Forgot password?</summary>
-      <form method="post">
-        <label for="recovery-email">Email address</label>
-        <input id="recovery-email" name="email" type="email" autocomplete="email" required>
-        <button type="submit">Send reset link</button>
-      </form>
-    </details>
+    <form id="request-password-reset" method="post" hidden>
+      <label for="recovery-email">Email address</label>
+      <input id="recovery-email" name="email" type="email" autocomplete="email" required>
+      <button type="submit">Send reset link</button>
+    </form>
     <form id="reset-password" method="post" style="display:none" hidden>
       <label for="new-password">New password</label>
       <input id="new-password" name="password" type="password" autocomplete="new-password" minlength="8" required>
@@ -52,20 +49,50 @@ if (page === 'signin') {
       <button type="submit">Update password</button>
     </form>`;
   passwordForm.after(recovery);
-  const forgot = recovery.querySelector('#forgot-password');
-  const requestForm = forgot.querySelector('form');
+  const requestForm = recovery.querySelector('#request-password-reset');
   const resetForm = recovery.querySelector('#reset-password');
+  const heading = document.querySelector('#title');
+  const footer = document.querySelector('.account-switch');
+  const mode = callback.searchParams.get('view');
+  const requestingReset = mode === 'reset';
+  const usingGitHub = mode === 'github';
+  const alternateView = requestingReset || usingGitHub;
+
+  function viewLink(label, view) {
+    const link = document.createElement('a');
+    const url = new URL(signIn);
+    if (view) url.searchParams.set('view', view);
+    link.href = url.href;
+    link.textContent = label;
+    return link;
+  }
+
+  document.querySelector('.auth-divider').hidden = true;
+  passwordForm.hidden = alternateView;
+  signInButton.hidden = !usingGitHub;
+  requestForm.hidden = !requestingReset;
+  if (alternateView) {
+    heading.textContent = requestingReset ? 'Reset your password' : 'Sign in with GitHub';
+    footer.replaceChildren(viewLink('Back to email sign-in'));
+  } else {
+    const options = document.createElement('nav');
+    options.className = 'account-switch';
+    options.setAttribute('aria-label', 'Other sign-in options');
+    options.style.cssText = 'flex-wrap:wrap;column-gap:1.25rem';
+    options.append(viewLink('Sign in with GitHub', 'github'), viewLink('Forgot password?', 'reset'));
+    footer.before(options);
+  }
 
   // Register before querying the session so an incoming recovery callback
   // can take precedence over the normal signed-in redirect.
   auth.onAuthStateChange((event, session) => {
     if (event !== 'PASSWORD_RECOVERY' || !session) return;
     recoveryUserId = session.user.id;
-    for (const control of [passwordForm, forgot, signInButton, document.querySelector('.auth-divider'), document.querySelector('.account-switch')]) {
+    for (const control of [passwordForm, requestForm, signInButton, ...document.querySelectorAll('.account-switch')]) {
       control.hidden = true;
       control.style.display = 'none';
     }
-    document.querySelector('#title').textContent = 'Reset your password';
+    heading.textContent = 'Set a new password';
     resetForm.hidden = false;
     resetForm.style.removeProperty('display');
     status.textContent = '';
