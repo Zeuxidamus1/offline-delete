@@ -64,3 +64,21 @@ The application now supports a managed service campaign with **22 fixed people-s
 - Add secret rotation, payment reconciliation, support tools and abuse/rate limits.
 
 **No broker requests are automatically sent by this new managed-service implementation. No checkout can accept payments until explicitly enabled.**
+
+## Automated removal preparation and outbound delivery (November 28, 2026)
+
+**Implemented and active for paid cases:**
+- A database trigger prepares 22 personalized, individually keyed removal requests immediately when a Stripe webhook changes a case from unpaid to paid. It is idempotent.
+- `case_removal_correspondence` stores the prepared request, delivery state and receipt. Customers have RLS-restricted access only to progress fields, not to full internal correspondence.
+- `removal_channel_registry` is a controlled, server-side per-provider register. Only TruePeopleSearch, FastPeopleSearch and FamilyTreeNow have confirmed official form routes; their requests are queued for manual opt-out and customer verification. The other nineteen require channel research.
+- The administrator dashboard displays stored per-customer request drafts, verified official form links, and a **Record Manual Submission** action. This requires a paid case, active authorization and actual submission reference. It does not itself send a request.
+- `case_followup_reminders` schedules a review 14 days after an actual recorded submission. The admin can mark due follow-ups reviewed. No follow-up is falsely described as having been sent.
+- Outbound worker `removal-dispatch` executes from private server-side Cron every six hours. It verifies the preexisting private job token and checks approval and configuration before sending anything.
+- `claim_approved_removal_emails` atomically locks and creates unique dispatch claims only for a paid campaign, unrevoked customer authorization, search consent and a reviewed email contact with `automated_delivery_approved=true`. Duplicates are blocked by a unique database constraint and an email-provider idempotency key.
+- Delivery attempts and provider message IDs are stored in `case_email_dispatches`. Uncertain network failures go to manual review rather than triggering automatic duplicate transmissions.
+
+**Outbound email is currently disabled.** A dedicated sender from a verified domain is not configured and no provider email channel has been approved. To enable it in the future, set valid server-side Edge Function secrets `RESEND_API_KEY`, `REMOVAL_SENDER_EMAIL` (a verified sending domain) and, only after tests and broker channel validation, `REMOVAL_DISPATCH_ENABLED=true`. The worker uses the Resend transactional email API; no personal Gmail account is used.
+
+Only a verified accepted privacy request channel may be approved in the registry. Do not substitute general support mailboxes for websites that require designated opt-out forms. No automation bypasses CAPTCHA, payment gates, consent verification or access controls.
+
+**QA performed:** verified 22 correspondence rows generated from the existing paid case, three official-form tasks, nineteen held for research, and owner-versus-other-user RLS (22 vs 0 rows). The outbound worker returned HTTP 200 with `enabled:false`, `attempted:0`, `sent:0` when invoked with its private server token. Checked the claim RPC with no approved email destinations; it returned zero eligible messages. Live browser end-to-end and Resend deliverability remain untested.
