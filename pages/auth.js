@@ -32,6 +32,105 @@ function go(destination) {
   window.location.replace(destination.href);
 }
 
+let recoveryUserId;
+if (page === 'signin') {
+  const recovery = document.createElement('div');
+  recovery.innerHTML = `
+    <details id="forgot-password">
+      <summary>Forgot password?</summary>
+      <form method="post">
+        <label for="recovery-email">Email address</label>
+        <input id="recovery-email" name="email" type="email" autocomplete="email" required>
+        <button type="submit">Send reset link</button>
+      </form>
+    </details>
+    <form id="reset-password" method="post" style="display:none" hidden>
+      <label for="new-password">New password</label>
+      <input id="new-password" name="password" type="password" autocomplete="new-password" minlength="8" required>
+      <label for="confirm-password">Confirm new password</label>
+      <input id="confirm-password" name="confirmation" type="password" autocomplete="new-password" minlength="8" required>
+      <button type="submit">Update password</button>
+    </form>`;
+  passwordForm.after(recovery);
+  const forgot = recovery.querySelector('#forgot-password');
+  const requestForm = forgot.querySelector('form');
+  const resetForm = recovery.querySelector('#reset-password');
+
+  // Register before querying the session so an incoming recovery callback
+  // can take precedence over the normal signed-in redirect.
+  auth.onAuthStateChange((event, session) => {
+    if (event !== 'PASSWORD_RECOVERY' || !session) return;
+    recoveryUserId = session.user.id;
+    for (const control of [passwordForm, forgot, signInButton, document.querySelector('.auth-divider'), document.querySelector('.account-switch')]) {
+      control.hidden = true;
+      control.style.display = 'none';
+    }
+    document.querySelector('#title').textContent = 'Reset your password';
+    resetForm.hidden = false;
+    resetForm.style.removeProperty('display');
+    status.textContent = '';
+    resetForm.elements.password.focus();
+  });
+
+  requestForm.addEventListener('submit', async event => {
+    event.preventDefault();
+    const submit = requestForm.querySelector('button');
+    submit.disabled = true;
+    status.textContent = 'Requesting a reset link…';
+    try {
+      const email = requestForm.elements.email.value.trim();
+      const { error } = await withTimeout(auth.resetPasswordForEmail(email, { redirectTo: signIn.href }));
+      if (error && error.code !== 'user_not_found') throw error;
+      status.textContent = 'If an account exists for that email, check your inbox. Open the reset link in the same browser.';
+    } catch (error) {
+      status.textContent = error.status === 429
+        ? 'Too many requests. Wait a few minutes and try again.'
+        : 'We couldn’t request a reset link. Try again.';
+    } finally {
+      submit.disabled = false;
+    }
+  });
+
+  resetForm.addEventListener('submit', async event => {
+    event.preventDefault();
+    const { password, confirmation } = resetForm.elements;
+    if (password.value !== confirmation.value) {
+      status.textContent = 'The passwords don’t match.';
+      confirmation.focus();
+      return;
+    }
+    const submit = resetForm.querySelector('button');
+    submit.disabled = true;
+    status.textContent = 'Updating your password…';
+    try {
+      const { data, error: sessionError } = await withTimeout(auth.getUser());
+      if (sessionError || data.user?.id !== recoveryUserId) {
+        status.textContent = 'Your reset session has ended. Reopen sign-in and request a new link.';
+        return;
+      }
+      const { error } = await withTimeout(auth.updateUser({ password: password.value }));
+      if (error) throw error;
+      resetForm.reset();
+      resetForm.hidden = true;
+      resetForm.style.display = 'none';
+      status.textContent = 'Password updated.';
+      const continueLink = document.createElement('a');
+      continueLink.href = home.href;
+      continueLink.textContent = 'Continue to your account';
+      status.after(continueLink);
+      continueLink.focus();
+    } catch (error) {
+      const messages = {
+        weak_password: 'Choose a stronger password.',
+        same_password: 'Choose a password different from your current password.'
+      };
+      status.textContent = messages[error.code] ?? 'We couldn’t update your password. Try again.';
+    } finally {
+      submit.disabled = false;
+    }
+  });
+}
+
 if (passwordForm) {
   passwordForm.addEventListener('submit', async event => {
     event.preventDefault();
@@ -1050,14 +1149,15 @@ async function initializeAdminOperations(user) {
 try {
   const { data: { user }, error } = await withTimeout(auth.getUser());
   if (page !== 'home' && page !== 'profile' && !appPageNames.has(page)) {
-    if (user) {
+    // Supabase dispatches callback auth events on the next task.
+    if (page === 'signin' && callback.searchParams.has('code')) {
+      await new Promise(resolve => setTimeout(resolve, 0));
+    }
+    if (!recoveryUserId && ((callback.searchParams.has('code') && !user) || confirmationFailed)) {
+      window.history.replaceState(null, '', signIn.href);
+      status.textContent = 'We couldn’t verify this link. Open it in the same browser, or request a new link.';
+    } else if (user && !recoveryUserId) {
       go(home);
-    } else {
-      if (callback.searchParams.has('code') || confirmationFailed) {
-        window.history.replaceState(null, '', signIn.href);
-        status.textContent = 'We couldn’t verify this sign-in. Try again.';
-      }
-      // Sign-in controls are enabled in the HTML from the start.
     }
   } else if (!user && (!error || error.name === 'AuthSessionMissingError' || error.status === 401 || error.status === 403)) {
     go(signIn);
