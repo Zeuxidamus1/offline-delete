@@ -14,7 +14,7 @@ test('managed service pages exist and do not advertise working checkout',()=>{
  for(const id of ['admin-access-state','admin-dashboard','admin-cases-list','admin-tasks-list']){
   assert.ok(pages.admin.includes('id="'+id+'"'),id);
  }
- assert.ok(pages.managed.includes('Payment and automated sending are not enabled yet'));
+ assert.ok(pages.managed.includes('Secure checkout is available only after the payment provider is configured.'));
  assert.ok(src.includes("'managed.html': page('managed'"));
  assert.ok(src.includes("'admin.html': page('admin'"));
 });
@@ -40,4 +40,23 @@ test('admin request drafting is not an email submission',()=>{
  assert.ok(js.includes('Copy Request Draft'));
  assert.ok(js.includes('navigator.clipboard.writeText'));
  assert.ok(js.includes('Confirm the official contact route before sending.'));
+});
+
+test('checkout stays disabled until signed webhook and explicit activation',()=>{
+ const api=read('supabase/functions/case-checkout/index.ts');
+ assert.ok(api.includes('STRIPE_SECRET_KEY'));
+ assert.ok(api.includes('STRIPE_WEBHOOK_SECRET'));
+ assert.ok(api.includes('STRIPE_CHECKOUT_ENABLED'));
+ assert.ok(api.includes('auth.getUser(token)'));
+ assert.ok(api.includes('caseRow.price_cents!==2500'));
+ assert.ok(api.includes('caseRow.payment_status==="paid"'));
+});
+test('payment confirmation validates Stripe signature and checkout amount',()=>{
+ const webhook=read('supabase/functions/case-payment-webhook/index.ts');
+ assert.ok(webhook.includes('crypto.subtle.sign("HMAC"'));
+ assert.ok(webhook.includes('stripe-signature'));
+ assert.ok(webhook.includes('session.payment_status!=="paid"'));
+ assert.ok(webhook.includes('session.amount_total!==2500'));
+ assert.ok(webhook.includes('caseRow.payment_provider_id!==session.id'));
+ assert.ok(webhook.includes('case_payment_events'));
 });
