@@ -19,8 +19,9 @@ Deno.serve(async req=>{
    const {data:cases,error:caseError}=await db.from("removal_cases")
       .select("id,user_id,status,price_cents,payment_status,created_at,updated_at").order("created_at",{ascending:false}).limit(100);
    if(caseError)return response({error:"Unable to load cases"},500);
+   const {data:sites}=await db.from("supported_sites").select("slug,name,search_url,optout_url,terms_reviewed,search_mode");
    const ids=(cases||[]).map(x=>x.id);
-   if(!ids.length)return response({cases:[],tasks:[],customers:[]});
+   if(!ids.length)return response({cases:[],tasks:[],customers:[],sites:sites||[]});
    const users=[...new Set((cases||[]).map(x=>x.user_id))];
    const [taskResult,profileResult]=await Promise.all([
      db.from("case_site_tasks").select("id,case_id,user_id,site_slug,status,channel,internal_note,updated_at")
@@ -28,7 +29,7 @@ Deno.serve(async req=>{
      db.from("customer_profiles").select("user_id,first_name,last_name").in("user_id",users)
    ]);
    if(taskResult.error||profileResult.error)return response({error:"Unable to load case details"},500);
-   return response({cases,tasks:taskResult.data||[],customers:profileResult.data||[]});
+   return response({cases,tasks:taskResult.data||[],customers:profileResult.data||[],sites:sites||[]});
  }
  if(body.action==="update_task"){
   const uuid=/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i;
