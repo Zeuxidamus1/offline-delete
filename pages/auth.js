@@ -930,9 +930,9 @@ async function initializeAdminOperations(user) {
           'This draft must be sent only through a verified, accepted privacy-request channel. No removal has yet been submitted by this action.',
           '',
           'Sincerely,',
-          'Offline Delete Privacy Operations'].join('\\n');
+          'Offline Delete Privacy Operations'].join('\n');
         try{
-          await navigator.clipboard.writeText('Subject: '+subject+'\\n\\n'+body);
+          await navigator.clipboard.writeText('Subject: '+subject+'\n\n'+body);
           meta.textContent='Request draft copied. Confirm the official contact route before sending.';
         }catch{meta.textContent='Clipboard unavailable. Use a supported browser.';}
       });
