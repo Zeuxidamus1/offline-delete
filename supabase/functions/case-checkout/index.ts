@@ -27,7 +27,7 @@ Deno.serve(async request=>{
  if(!uuid.test(input.case_id||""))return reply({error:"Invalid case"},400);
  const db=createClient(url,service,{auth:{persistSession:false}});
  const {data:caseRow,error:caseError}=await db.from("removal_cases")
-   .select("id,user_id,authorization_id,status,payment_status,price_cents,currency")
+   .select("id,user_id,authorization_id,status,payment_status,payment_provider_id,price_cents,currency")
    .eq("id",input.case_id).eq("user_id",user.id).maybeSingle();
  if(caseError||!caseRow)return reply({error:"Case not found"},404);
  if(caseRow.payment_status==="paid")return reply({error:"This case has already been paid"},409);
@@ -36,6 +36,27 @@ Deno.serve(async request=>{
  const {data:signature}=await db.from("customer_authorizations").select("revoked_at").eq("id",caseRow.authorization_id)
    .eq("user_id",user.id).maybeSingle();
  if(!signature||signature.revoked_at)return reply({error:"Valid customer authorization required"},403);
+ let attemptKey="initial";
+ if(caseRow.payment_provider_id){
+   const previousId=String(caseRow.payment_provider_id);
+   if(!/^cs_[A-Za-z0-9_]+$/.test(previousId))return reply({error:"Invalid previous checkout session"},500);
+   let previous:Response;
+   try{
+     previous=await fetch("https://api.stripe.com/v1/checkout/sessions/"+encodeURIComponent(previousId),{
+       headers:{Authorization:"Bearer "+secret}
+     });
+   }catch{return reply({error:"Unable to retrieve existing checkout"},502)}
+   if(!previous.ok)return reply({error:"Unable to retrieve existing checkout"},502);
+   const oldSession=await previous.json();
+   if(oldSession.status==="open" && typeof oldSession.url==="string" &&
+      oldSession.url.startsWith("https://checkout.stripe.com/"))
+     return reply({checkout_url:oldSession.url});
+   if(oldSession.status==="complete")
+     return reply({error:"Payment is being confirmed. Refresh your case shortly."},409);
+   if(oldSession.status!=="expired")
+     return reply({error:"Existing checkout requires review"},409);
+   attemptKey=previousId;
+ }
  const base="https://zeuxidamus1.github.io/offline-delete/";
  const body=new URLSearchParams({
   mode:"payment",
@@ -57,7 +78,7 @@ Deno.serve(async request=>{
    method:"POST",headers:{
     Authorization:"Bearer "+secret,
     "Content-Type":"application/x-www-form-urlencoded",
-    "Idempotency-Key":"offline-managed-"+caseRow.id+"-"+new Date().toISOString().slice(0,10)
+    "Idempotency-Key":"offline-managed-"+caseRow.id+"-"+attemptKey
    },body
   });
  }catch{return reply({error:"Payment provider unavailable"},502)}
