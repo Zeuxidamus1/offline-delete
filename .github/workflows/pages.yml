@@ -61,6 +61,16 @@ jobs:
           }
           if (!authBundle.includes('guide_steps_completed')) process.exit(1);
           if (!authBundle.includes('privacy-scan')) process.exit(1);
+          const managed = readFileSync('pages-dist/managed.html','utf8');
+          const admin = readFileSync('pages-dist/admin.html','utf8');
+          for (const id of ['managed-case-form','managed-cases-list','managed-covered-sites']) {
+            if (!managed.includes('id=\"' + id + '\"')) process.exit(1);
+          }
+          for (const id of ['admin-access-state','admin-dashboard','admin-tasks-list']) {
+            if (!admin.includes('id=\"' + id + '\"')) process.exit(1);
+          }
+          if (!authBundle.includes('customer_authorizations')) process.exit(1);
+          if (!authBundle.includes('case-admin')) process.exit(1);
           "
       - uses: actions/upload-pages-artifact@v3
         with:
