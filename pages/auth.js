@@ -784,6 +784,19 @@ async function initializeManagedCases(user) {
   const tasksResponse=await withTimeout(supabase.from('case_site_tasks').select('case_id,site_slug,status').eq('user_id',user.id));
   if(tasksResponse.error){if(feedback)feedback.textContent='Unable to load case progress.';return;}
   const allTasks=tasksResponse.data||[];
+  let checkoutReady=false;
+  try{
+    const {data,error}=await withTimeout(supabase.functions.invoke('case-checkout',{method:'GET'}));
+    checkoutReady=!error && Boolean(data?.ready);
+  }catch{}
+  const checkoutMessage=new URL(window.location.href).searchParams.get('checkout');
+  if(feedback && checkoutMessage==='success'){
+    feedback.textContent=cases.some(c=>c.payment_status==='paid')
+      ? 'Payment confirmed. Your case is awaiting processing.'
+      : 'Checkout returned. Payment is pending verification by the payment provider.';
+  } else if(feedback && checkoutMessage==='cancelled'){
+    feedback.textContent='Checkout cancelled. No new payment was confirmed.';
+  }
   const list=document.getElementById('managed-cases-list');
   if(list){
     list.replaceChildren();
@@ -792,10 +805,39 @@ async function initializeManagedCases(user) {
       const authRow=authorizations.find(a=>a.id===item.authorization_id);
       const card=document.createElement('details');card.className='managed-case-card';
       const head=document.createElement('summary');
-      head.textContent='Case '+item.id.slice(0,8).toUpperCase()+' · '+formatDate(item.created_at)+' · '+(item.payment_status==='paid'?'Paid': 'Payment not configured');
+      head.textContent='Case '+item.id.slice(0,8).toUpperCase()+' · '+formatDate(item.created_at)+' · '+
+        (item.payment_status==='paid'?'Paid':item.payment_status==='pending'?'Payment pending':'Not paid');
       const note=document.createElement('p');
       note.textContent='Status: '+item.status+' · '+tasks.length+' websites · '+tasks.filter(t=>t.status==='verified_removed').length+' verified removed';
       card.append(head,note);
+      if(checkoutReady && item.payment_status!=='paid' && authRow && !authRow.revoked_at){
+        const pay=makeAction('Pay $25 Securely','listing-confirm',async()=>{
+          pay.disabled=true;pay.textContent='Opening secure checkout…';
+          if(feedback)feedback.textContent='';
+          try{
+            const {data,error}=await supabase.functions.invoke('case-checkout',{
+              method:'POST',body:{case_id:item.id}
+            });
+            if(error || !data?.checkout_url){
+              let reason='Secure checkout is not currently available.';
+              try{const payload=await error?.context?.json();if(payload?.error)reason=payload.error;}catch{}
+              throw new Error(reason);
+            }
+            const url=new URL(data.checkout_url);
+            if(url.protocol!=='https:'||url.hostname!=='checkout.stripe.com')
+              throw new Error('Unexpected checkout destination.');
+            window.location.assign(url.href);
+          }catch(error){
+            if(feedback)feedback.textContent=error.message||'Unable to open checkout.';
+            pay.disabled=false;pay.textContent='Pay $25 Securely';
+          }
+        });
+        card.append(pay);
+      } else if(item.payment_status!=='paid' && !checkoutReady) {
+        const coming=document.createElement('small');
+        coming.textContent='Secure checkout is not configured yet.';
+        card.append(coming);
+      }
       if(authRow && !authRow.revoked_at){
         const revoke=makeAction('Revoke authorization','listing-secondary',async()=>{
           if(!window.confirm('Revoke this authorization? Future managed requests under this authorization must stop.'))return;
