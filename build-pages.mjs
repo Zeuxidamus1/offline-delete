@@ -58,8 +58,7 @@ function accountPage(name, title, switchText, switchLink) {
   return page(name, title + ' | PrivacyDucks', '', `<main class="account-layout">
 <section class="auth" aria-labelledby="title">
 <div class="account-content">
-<span class="account-mark" aria-hidden="true"><span></span></span>
-<h1 id="title">${title}</h1>
+${signingUp ? '<span class="account-mark" aria-hidden="true"><span></span></span>\n' : ''}<h1 id="title">${title}</h1>
 <form id="password-auth" method="post">
 <label for="email">Email address</label>
 <input id="email" name="email" type="email" autocomplete="email" required>
