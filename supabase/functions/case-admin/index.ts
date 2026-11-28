@@ -13,7 +13,7 @@ Deno.serve(async req=>{
  const db=createClient(url,service,{auth:{persistSession:false}});
  const {data:admin,error:adminErr}=await db.from("case_administrators").select("user_id").eq("user_id",user.id).maybeSingle();
  if(adminErr||!admin)return response({error:"Administrator access required"},403);
- let body:{action?:string;task_id?:string;status?:string;note?:string};
+ let body:{action?:string;task_id?:string;status?:string;note?:string;delivery_reference?:string};
  try{body=await req.json()}catch{return response({error:"Invalid request"},400)}
  if(body.action==="list"){
    const {data:cases,error:caseError}=await db.from("removal_cases")
@@ -24,15 +24,47 @@ Deno.serve(async req=>{
    const {data:authorizations}=authIds.length?await db.from("customer_authorizations")
       .select("id,revoked_at").in("id",authIds):{data:[]};
    const ids=(cases||[]).map(x=>x.id);
-   if(!ids.length)return response({cases:[],tasks:[],customers:[],sites:sites||[],authorizations:[]});
+   if(!ids.length)return response({cases:[],tasks:[],customers:[],sites:sites||[],authorizations:[],correspondence:[],channels:[]});
    const users=[...new Set((cases||[]).map(x=>x.user_id))];
-   const [taskResult,profileResult]=await Promise.all([
+   const [taskResult,profileResult,lettersResult,channelResult]=await Promise.all([
      db.from("case_site_tasks").select("id,case_id,user_id,site_slug,status,channel,internal_note,updated_at")
        .in("case_id",ids).order("updated_at",{ascending:false}).limit(2200),
-     db.from("customer_profiles").select("user_id,first_name,last_name").in("user_id",users)
+     db.from("customer_profiles").select("user_id,first_name,last_name").in("user_id",users),
+     db.from("case_removal_correspondence").select("id,case_id,task_id,site_slug,channel,delivery_status,subject,body,delivery_reference,submitted_at").in("case_id",ids).limit(2200),
+     db.from("removal_channel_registry").select("site_slug,accepted_channel,submission_url,reviewed_at,review_notes,automated_delivery_approved")
    ]);
-   if(taskResult.error||profileResult.error)return response({error:"Unable to load case details"},500);
-   return response({cases,tasks:taskResult.data||[],customers:profileResult.data||[],sites:sites||[],authorizations:authorizations||[]});
+   if(taskResult.error||profileResult.error||lettersResult.error||channelResult.error)return response({error:"Unable to load case details"},500);
+   return response({cases,tasks:taskResult.data||[],customers:profileResult.data||[],sites:sites||[],authorizations:authorizations||[],correspondence:lettersResult.data||[],channels:channelResult.data||[]});
+ }
+ if(body.action==="record_manual_submission"){
+   const uuid=/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i;
+   const receipt=String(body.delivery_reference||"").trim();
+   if(!uuid.test(body.task_id||"") || receipt.length<8 || receipt.length>500)
+      return response({error:"Provide the task and an actual confirmation or receipt reference (8-500 characters)."},400);
+   const {data:task}=await db.from("case_site_tasks").select("id,case_id,user_id,site_slug,status")
+      .eq("id",body.task_id).maybeSingle();
+   if(!task)return response({error:"Task not found"},404);
+   const {data:caseRow}=await db.from("removal_cases").select("authorization_id,payment_status,status")
+      .eq("id",task.case_id).eq("user_id",task.user_id).maybeSingle();
+   if(!caseRow||caseRow.payment_status!=="paid"||!["paid","active"].includes(caseRow.status))
+      return response({error:"A confirmed paid campaign is required."},403);
+   const {data:authorization}=await db.from("customer_authorizations").select("revoked_at")
+      .eq("id",caseRow.authorization_id).eq("user_id",task.user_id).maybeSingle();
+   if(!authorization||authorization.revoked_at)return response({error:"Customer authorization is missing or revoked"},403);
+   const {data:letter}=await db.from("case_removal_correspondence")
+      .select("id,delivery_status").eq("task_id",task.id).maybeSingle();
+   if(!letter)return response({error:"Prepare the case first"},409);
+   if(letter.delivery_status==="submitted")return response({error:"Already submitted. Do not duplicate the request."},409);
+   const now=new Date().toISOString();
+   const {data:changed,error:updateError}=await db.from("case_removal_correspondence")
+      .update({delivery_status:"submitted",delivery_reference:receipt,submitted_at:now,verified_by:user.id,updated_at:now})
+      .eq("id",letter.id).neq("delivery_status","submitted").select("id,delivery_status").maybeSingle();
+   if(updateError||!changed)return response({error:"Unable to record submission"},409);
+   await db.from("case_site_tasks").update({status:"sent",last_action_at:now,updated_at:now})
+     .eq("id",task.id);
+   await db.from("case_events").insert({case_id:task.case_id,user_id:task.user_id,site_slug:task.site_slug,
+     actor_id:user.id,event_type:"manual_submission_recorded",detail:"Administrator recorded a manual submission reference."});
+   return response({correspondence:changed});
  }
  if(body.action==="update_task"){
   const uuid=/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i;
@@ -43,9 +75,14 @@ Deno.serve(async req=>{
   const {data:task,error:loadError}=await db.from("case_site_tasks").select("id,case_id,user_id,site_slug,status")
     .eq("id",body.task_id).maybeSingle();
   if(loadError||!task)return response({error:"Task not found"},404);
-  const {data:caseRow}=await db.from("removal_cases").select("authorization_id").eq("id",task.case_id).maybeSingle();
+  const {data:caseRow}=await db.from("removal_cases").select("authorization_id,payment_status,status").eq("id",task.case_id).maybeSingle();
   const {data:signature}=caseRow?await db.from("customer_authorizations").select("revoked_at").eq("id",caseRow.authorization_id).maybeSingle():{data:null};
   if(!signature || signature.revoked_at)return response({error:"Customer authorization is missing or revoked"},403);
+  if(caseRow?.payment_status!=="paid")return response({error:"Only paid cases can be processed"},403);
+  if(body.status==="ready_to_send"){
+    const {data:channel}=await db.from("removal_channel_registry").select("accepted_channel,reviewed_at").eq("site_slug",task.site_slug).maybeSingle();
+    if(!channel?.reviewed_at || channel.accepted_channel==="unverified")return response({error:"The provider submission channel is unverified"},409);
+  }
   const {data:updated,error:updateError}=await db.from("case_site_tasks")
     .update({status:body.status,internal_note:note||null,updated_at:new Date().toISOString(),last_action_at:new Date().toISOString()})
     .eq("id",task.id).select("id,status").single();
