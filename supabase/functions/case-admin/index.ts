@@ -79,6 +79,10 @@ Deno.serve(async req=>{
   const {data:signature}=caseRow?await db.from("customer_authorizations").select("revoked_at").eq("id",caseRow.authorization_id).maybeSingle():{data:null};
   if(!signature || signature.revoked_at)return response({error:"Customer authorization is missing or revoked"},403);
   if(caseRow?.payment_status!=="paid")return response({error:"Only paid cases can be processed"},403);
+  const {data:existingLetter}=await db.from("case_removal_correspondence")
+    .select("delivery_status").eq("task_id",task.id).maybeSingle();
+  if(existingLetter?.delivery_status==="submitted"||task.status==="sent"||task.status==="verified_removed")
+    return response({error:"Submitted or completed work cannot be overwritten by a status edit"},409);
   if(body.status==="ready_to_send"){
     const {data:channel}=await db.from("removal_channel_registry").select("accepted_channel,reviewed_at").eq("site_slug",task.site_slug).maybeSingle();
     if(!channel?.reviewed_at || channel.accepted_channel==="unverified")return response({error:"The provider submission channel is unverified"},409);
