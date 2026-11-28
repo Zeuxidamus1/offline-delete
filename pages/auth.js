@@ -880,10 +880,15 @@ async function initializeManagedCases(user) {
   if(profile?.first_name && profile?.last_name){
     nameField.placeholder='Type '+profile.first_name+' '+profile.last_name;
   }
-  const currentDraft=cases.find(c=>c.status==='draft');
-  if(currentDraft){
+  const currentOpen=cases.find(c=>c.status==='draft'||c.status==='awaiting_payment');
+  if(currentOpen){
     form.hidden=true;
-    if(feedback)feedback.textContent='Draft created. Checkout has not been connected yet.';
+    if(feedback && checkoutMessage!=='success' && checkoutMessage!=='cancelled'){
+      feedback.textContent=currentOpen.status==='awaiting_payment'
+        ?'Payment is pending. Open your case to view checkout status.'
+        :checkoutReady?'Draft ready. Open your case to pay securely.'
+        :'Draft created. Checkout has not been connected yet.';
+    }
     return;
   }
   if(!profile?.first_name||!profile?.last_name||!profile.consent_to_search){
