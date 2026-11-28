@@ -477,3 +477,33 @@ body[data-page="scan-results"] #manual-status:not(:empty){font-size:.8rem;color:
 #verification-feedback:not(:empty){color:#a8f2d0;font-size:.85rem;padding:12px 0;}
 .scan-coverage{font-size:.78rem;color:#8dd3b3;}
 @media(max-width:650px){.verification-actions{align-items:stretch;flex-direction:column}.verification-actions select,.verification-actions button{width:100%;}}
+
+
+/* Managed-service cases and private administrator queue */
+.managed-workspace .app-title-row,.managed-admin .app-title-row{margin-bottom:23px}
+.managed-workspace .app-panel,.managed-admin .app-panel{margin-bottom:20px}
+.managed-promo{margin:20px 0}
+.managed-case-form{display:grid;gap:14px;max-width:720px;margin-top:20px}
+.managed-case-form>label:not(.managed-consent){font-weight:650;font-size:.87rem}
+.managed-case-form>input{min-height:46px;border:1px solid #3b6558;background:#09221d;color:#e9fff5;padding:10px 13px;border-radius:10px;font:inherit;width:100%}
+.managed-consent{display:flex;align-items:flex-start;gap:12px;line-height:1.7;font-size:.88rem;color:#c6e4d7;border:1px solid #345b51;background:#102b26;border-radius:11px;padding:15px}
+.managed-consent input{margin-top:5px;flex:none;width:19px;height:19px;accent-color:#3be2a7}
+#managed-create-case{background:#2be4a4;color:#072a20;border:0;border-radius:10px;min-height:46px;padding:11px 20px;font-weight:800;cursor:pointer;justify-self:start}
+#managed-create-case:disabled{opacity:.5;cursor:default}
+#managed-case-feedback{color:#a3f1d0;font-size:.83rem}
+.managed-site-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:9px;margin-top:15px}
+.managed-site-grid span{font-size:.83rem;border:1px solid #2c5349;background:#102f29;border-radius:9px;padding:10px 12px;color:#d5eee1}
+.managed-case-card{margin:15px 0;border:1px solid #346257;border-radius:12px;padding:14px;background:#102b27}
+.managed-case-card summary{cursor:pointer;font-weight:700;color:#e7fff3}
+.managed-case-card p{font-size:.84rem;color:#acd0c2}
+.managed-case-card button{margin:12px 0}
+.managed-case-sites{margin-top:15px;display:grid;gap:8px}
+.managed-case-site{display:flex;gap:12px;justify-content:space-between;align-items:center;padding:7px 0;border-top:1px solid #2c4e46;font-size:.83rem}
+.managed-case-site .app-pill{text-transform:capitalize;white-space:nowrap}
+.admin-task-entry{padding:14px 0;border-bottom:1px solid #29483f;display:grid;gap:8px}
+.admin-task-entry small{color:#accbbc}
+.admin-task-controls{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.admin-task-controls select,.admin-task-controls input{border:1px solid #386354;border-radius:9px;background:#102820;color:#e5f8ee;min-height:39px;padding:9px;font:inherit;font-size:.83rem}
+.admin-task-controls input{flex:1;min-width:150px}
+.admin-task-controls button{min-height:39px}
+@media(max-width:640px){.admin-task-controls{flex-direction:column;align-items:stretch}.admin-task-controls input,.admin-task-controls select,.admin-task-controls button{width:100%}.managed-case-site{align-items:flex-start}.managed-case-site .app-pill{white-space:normal}}
