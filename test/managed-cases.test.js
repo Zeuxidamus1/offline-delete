@@ -37,9 +37,9 @@ test('admin task updates require server-verified admin role',()=>{
 });
 test('admin request drafting is not an email submission',()=>{
  const js=read('pages/auth.js');
- assert.ok(js.includes('Copy Request Draft'));
+ assert.ok(js.includes('Copy Prepared Request'));
  assert.ok(js.includes('navigator.clipboard.writeText'));
- assert.ok(js.includes('Confirm the official contact route before sending.'));
+ assert.ok(js.includes('Submit using the verified provider channel'));
 });
 
 test('checkout stays disabled until signed webhook and explicit activation',()=>{
@@ -59,4 +59,21 @@ test('payment confirmation validates Stripe signature and checkout amount',()=>{
  assert.ok(webhook.includes('session.amount_total!==2500'));
  assert.ok(webhook.includes('caseRow.payment_provider_id!==session.id'));
  assert.ok(webhook.includes('case_payment_events'));
+});
+
+test('admin API accepts manual submission receipts only for paid authorized cases',()=>{
+ const api=read('supabase/functions/case-admin/index.ts');
+ assert.ok(api.includes('record_manual_submission'));
+ assert.ok(api.includes('caseRow.payment_status!=="paid"'));
+ assert.ok(api.includes('Customer authorization is missing or revoked'));
+ assert.ok(api.includes('delivery_reference:receipt'));
+ assert.ok(api.includes('manual_submission_recorded'));
+ assert.ok(api.includes('The provider submission channel is unverified'));
+});
+test('customers see correspondence progress without drafts or payment secrets',()=>{
+ const js=read('pages/auth.js');
+ assert.ok(js.includes(".from('case_removal_correspondence')"));
+ assert.ok(js.includes(".select('case_id,site_slug,channel,delivery_status,submitted_at')"));
+ assert.ok(js.includes("letterMap=new Map"));
+ assert.ok(js.includes('Official Removal Form'));
 });
