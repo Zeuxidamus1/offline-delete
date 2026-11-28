@@ -13,8 +13,9 @@ Deno.serve(async request=>{
  if(!["GET","POST"].includes(request.method))return reply({error:"Method not allowed"},405);
  const secret=Deno.env.get("STRIPE_SECRET_KEY");
  const webhook=Deno.env.get("STRIPE_WEBHOOK_SECRET");
- if(request.method==="GET")return reply({ready:Boolean(secret&&webhook),mode:"one_time",amount_cents:2500,currency:"usd"});
- if(!secret||!webhook)return reply({error:"Checkout is not configured"},503);
+ const activated=Deno.env.get("STRIPE_CHECKOUT_ENABLED")==="true";
+ if(request.method==="GET")return reply({ready:Boolean(secret&&webhook&&activated),mode:"one_time",amount_cents:2500,currency:"usd"});
+ if(!secret||!webhook||!activated)return reply({error:"Checkout is not configured"},503);
  const token=request.headers.get("authorization")?.replace(/^Bearer\s+/i,"");
  if(!token)return reply({error:"Sign in required"},401);
  const url=Deno.env.get("SUPABASE_URL"),anon=Deno.env.get("SUPABASE_ANON_KEY"),service=Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
